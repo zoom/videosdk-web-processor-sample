@@ -1,4 +1,4 @@
-import { useCallback, useState, useRef, useContext, useEffect } from 'react';
+import { useState, useRef, useContext, useEffect } from 'react';
 import type { Processor } from '@zoom/videosdk';
 import { Button, Select, Input, Checkbox } from 'antd';
 import ZoomContext from '../../context/zoom-context';
@@ -8,19 +8,17 @@ import './processor.scss';
 
 const { Option } = Select;
 
-interface AppProps {
-  useVideoPlayer?: string;
-}
+const baseUrl = window.origin;
 
-const ProcessorContainer = (props: AppProps) => {
+const ProcessorContainer = () => {
   const [videoOn, setVideoOn] = useState(false);
   const [rendererType, setRendererType] = useState<'2D' | 'WebGL' | 'WebGL2'>('2D');
   const [shape, setShape] = useState<'1' | '0'>('1');
   const [scaleFactor, setScaleFactor] = useState<number>(1.0);
   const [useAngle, setUseAngle] = useState<boolean>(false);
   const [zoomVideo, setZoomVideo] = useState<boolean>(false);
-  const [watermarkUrl, setWatermarkUrl] = useState<string>('https://videosdk.zoomdev.us/2.1.5/lib/watermark.svg'); //
-  const [selectedProcessor, setSelectedProcessor] = useState<string>('zoom-dual-mask-video-processor'); // 新增
+  const [watermarkUrl, setWatermarkUrl] = useState<string>(baseUrl + '/watermark.svg');
+  const [selectedProcessor, setSelectedProcessor] = useState<string>('zoom-dual-mask-video-processor');
 
   const isSwitching = useRef(false);
   const processorMapRef = useRef(new Map<string, Processor>());
@@ -64,7 +62,7 @@ const ProcessorContainer = (props: AppProps) => {
 
   const selectVideoProcessor =
     (name: string, url: string, options: any, initCallback: (port: MessagePort) => void) => async () => {
-      setSelectedProcessor(name); // 更新选中的 Processor
+      setSelectedProcessor(name);
       if (processorRef.current) {
         mediaStream?.removeProcessor(processorRef.current);
       }
@@ -88,7 +86,7 @@ const ProcessorContainer = (props: AppProps) => {
     };
 
   const handleWatermarkUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setWatermarkUrl(e.target.value); // 更新输入框内容状态
+    setWatermarkUrl(e.target.value);
   };
 
   useEffect(() => {
@@ -227,16 +225,14 @@ const ProcessorContainer = (props: AppProps) => {
         <Button
           onClick={selectVideoProcessor(
             'zoom-dual-mask-video-processor',
-            'https://rwgdev200.zoomdev.us:10086/processors/zoom-dual-mask-video-processor.js',
+            baseUrl + '/zoom-dual-mask-video-processor.js',
             {
-              assetsUrlBase: 'https://rwgdev200.zoomdev.us:10086/processors/assets/mediapipe'
+              assetsUrlBase: baseUrl + '/assets/mediapipe'
             },
             async (port: MessagePort) => {
               port.postMessage({
-                cmd: 'mask_background_image',
-                data: await loadImageBitmap(
-                  'https://interactive-examples.mdn.mozilla.net/media/cc0-images/grapefruit-slice-332-332.jpg'
-                ),
+                cmd: 'update_mask_background_image',
+                data: await loadImageBitmap(baseUrl + '/moon.jpg'),
                 rendererType,
                 shape,
                 scaleFactor,
@@ -250,12 +246,12 @@ const ProcessorContainer = (props: AppProps) => {
         <Button
           onClick={selectVideoProcessor(
             'watermark-processor',
-            'https://rwgdev200.zoomdev.us:10086/processors/watermark-processor.js',
+            baseUrl + '/watermark-processor.js',
             {},
             async (port: MessagePort) => {
               port.postMessage({
                 cmd: 'update_watermark_image',
-                data: await loadImageBitmap('https://videosdk.zoomdev.us/2.1.5/lib/watermark.svg')
+                data: await loadImageBitmap(baseUrl + '/watermark.svg')
               });
             }
           )}
