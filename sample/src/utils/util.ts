@@ -177,3 +177,16 @@ export function parseJwt(token: string) {
 
   return JSON.parse(jsonPayload);
 }
+
+export function loadImageBitmap(src: string) {
+  const testImage = document.createElement("img");
+  testImage.width = 640;
+  testImage.height = 360;
+  testImage.crossOrigin = "anonymous";
+  testImage.src = src;
+  return new Promise((resolve) => {
+    testImage.onload = () => {
+      resolve(createImageBitmap(testImage));
+    };
+  });
+}

@@ -1,4 +1,4 @@
-# Zoom Video SDK Media Processor Sample
+# Zoom Media Processor Sample
 
 ## Installation
 
@@ -20,13 +20,13 @@ To get started, clone the repo:
 
 1. Open the `src/config/dev.ts` file and enter required session values for the variables:
 
-   | Key                   | Value Description |
-   | -----------------------|-------------|
-   | `sdkKey`     | Your Video SDK Key. Required. |
-   | `sdkSecret`  | Your Video SDK Secret. Required. |
-   | `topic`      | Required, a session name of your choice or the name of the session you are joining. |
-   | `name`       | Required, a name for the participant. |
-   | `password`   | Optional, a session passcode of your choice or the passcode of the session you are joining. |
+   | Key         | Value Description                                                                           |
+   | ----------- | ------------------------------------------------------------------------------------------- |
+   | `sdkKey`    | Your Video SDK Key. Required.                                                               |
+   | `sdkSecret` | Your Video SDK Secret. Required.                                                            |
+   | `topic`     | Required, a session name of your choice or the name of the session you are joining.         |
+   | `name`      | Required, a name for the participant.                                                       |
+   | `password`  | Optional, a session passcode of your choice or the passcode of the session you are joining. |
 
    Example:
 
@@ -48,12 +48,12 @@ To get started, clone the repo:
 
 1. Run the app:
 
-   `$ npm start`
+   `$ npm run dev`
 
 ## Usage
 
 1. Navigate to http://localhost:3000 and click Media Processor.
 
 2. Start video and select a processor, enjoy it.
- 
+
    > We have two test processors now, the source code is in the lib folder and need to build and put it into a public server, you can see the bulit files on public folder.
