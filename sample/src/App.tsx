@@ -128,7 +128,7 @@ declare global {
   }
 }
 
-function HomePage() {
+function HomePage({ loading }: { loading: boolean }) {
   const navigate = useNavigate();
 
   return (
@@ -165,19 +165,30 @@ function HomePage() {
             Amazing media processors from Zoom!
           </h1>
         </div>
-        <p className="text-xl text-gray-600 mb-8" hidden>
+        <p className="text-xl text-gray-600 mb-8">
           Transform your media with our powerful processing tools. Edit,
           convert, and share with ease.
         </p>
         <button
-          onClick={() => navigate("/processors")}
-          className="group px-8 py-4 bg-gradient-to-r from-blue-500 to-indigo-500 text-white text-xl font-semibold rounded-lg transition-all duration-300 transform hover:-translate-y-1 hover:shadow-xl hover:shadow-blue-200 relative overflow-hidden"
+          onClick={() => !loading && navigate("/processors")}
+          className={`group px-8 py-4 text-white text-xl font-semibold rounded-lg transition-all duration-300 transform relative overflow-hidden bg-gradient-to-r from-blue-500 to-indigo-500 ${
+            loading
+              ? "cursor-not-allowed opacity-75"
+              : "hover:-translate-y-1 hover:shadow-xl hover:shadow-blue-200"
+          }`}
+          disabled={loading}
         >
           <span className="relative z-10 flex items-center justify-center">
-            Explore
-            <Play className="w-6 h-6 ml-2 transform group-hover:translate-x-1 transition-transform" />
+            <span className={loading ? "animate-pulse" : ""}>
+              {loading ? "Loading..." : "Explore"}
+            </span>
+            {!loading && (
+              <Play className="w-6 h-6 ml-2 transform group-hover:translate-x-1 transition-transform" />
+            )}
           </span>
-          <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+          {!loading && (
+            <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+          )}
         </button>
       </div>
 
@@ -382,14 +393,12 @@ function App(props: AppProps) {
     };
   }, [zmClient, onConnectionChange, onMediaSDKChange]);
   console.log({ isSupportGalleryView, galleryViewWithAttach });
-  return loading ? (
-    "loading"
-  ) : (
+  return (
     <ZoomMediaContext.Provider value={mediaContext}>
       <Router>
         <div className="relative min-h-screen">
           <Routes>
-            <Route path="/" element={<HomePage />} />
+            <Route path="/" element={<HomePage loading={loading} />} />
             <Route path="/processors" element={<MediaProcessors />} />
             <Route path="/processor/:type/:id" element={<ProcessorDetail />} />
           </Routes>
