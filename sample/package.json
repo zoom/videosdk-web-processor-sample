@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "postinstall": "cp -r node_modules/@zoom/videosdk/dist/lib public",
-    "dev": "vite",
+    "dev": "concurrently \"npm run dev:client\" \"npm run dev:server\"",
+    "dev:client": "vite",
+    "dev:server": "cd server && node server.js",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"
@@ -23,7 +25,11 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.22.3",
-    "react-syntax-highlighter": "^15.6.1"
+    "react-syntax-highlighter": "^15.6.1",
+    "concurrently": "^8.2.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",
