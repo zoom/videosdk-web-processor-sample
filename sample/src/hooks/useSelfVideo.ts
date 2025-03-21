@@ -38,7 +38,7 @@ export function useVideo() {
         mediaStream?.stopVideo();
       }
     },
-    []
+    [mediaStream]
   );
 
   return {

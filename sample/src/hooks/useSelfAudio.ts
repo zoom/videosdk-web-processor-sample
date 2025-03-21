@@ -32,7 +32,7 @@ export function useAudio() {
         mediaStream?.stopAudio();
       }
     },
-    []
+    [mediaStream]
   );
 
   return {
