@@ -1,10 +1,11 @@
 import { Box, Binary, Gauge, Cpu, Video } from "lucide-react";
 import DualMask from "../../components/parameters/DualMask";
 import WatermarkEffect from "../../components/parameters/WatermarkEffect";
+import { ProcessorConfig } from "../../index-types";
 
 const baseUrl = window.origin;
 
-export default {
+const videoConfig: Record<string, ProcessorConfig> = {
   "zoom-dual-mask-video-processor": {
     id: "zoom-dual-mask-video-processor",
     url: baseUrl + "/zoom-dual-mask-video-processor.js",
@@ -196,3 +197,5 @@ export default {
     isInDevelopment: false,
   },
 };
+
+export default videoConfig;

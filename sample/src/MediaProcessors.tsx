@@ -45,21 +45,21 @@ const audioProcessors: Processor[] = [
     description:
       "A basic processor where audio is passed through the processor but nothing changes.",
     icon: <Volume2 className="w-6 h-6" />,
-    isInDevelopment: true,
+    // isInDevelopment: true,
   },
   {
     id: "audio-classification-processor",
     name: "Audio Classification Processor",
     description: "Categorize audio clips into a series of defined categories.",
     icon: <AudioLines className="w-6 h-6" />,
-    isInDevelopment: true,
+    // isInDevelopment: true,
   },
   {
     id: "text-to-speech-processor",
     name: "Text-to-Speech Processor",
     description: "Convert real-time audio stream to text",
     icon: <Speech className="w-6 h-6" />,
-    isInDevelopment: true,
+    // isInDevelopment: true,
   },
 ];
 

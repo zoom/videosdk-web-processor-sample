@@ -5,6 +5,7 @@ import classNames from "classnames";
 import videoProcessorConfig from "../../config/processor/video";
 import { useLoadProcessor } from "../../hooks/useLoadProcessor";
 import { useVideo } from "../../hooks/useSelfVideo";
+import { useAudio } from "../../hooks/useSelfAudio";
 
 interface VideoProcessorProps {
   id: string;
@@ -13,6 +14,8 @@ interface VideoProcessorProps {
 function VideoProcessor({ id }: VideoProcessorProps) {
   const { videoOn, handleToggleVideo, selfVideoRef } = useVideo();
   const processor = useLoadProcessor(id, "video");
+
+  const { audioOn, handleToggleAudio } = useAudio();
 
   const Cmp = useMemo(() => {
     return videoProcessorConfig[id]?.render || null;
@@ -33,9 +36,9 @@ function VideoProcessor({ id }: VideoProcessorProps) {
             </button> */}
             <button
               className="p-2 rounded-lg bg-blue-500 hover:bg-blue-600 transition-colors"
-              onClick={handleToggleVideo}
+              onClick={handleToggleAudio}
             >
-              {videoOn ? (
+              {audioOn ? (
                 <Pause className="w-5 h-5 text-white" />
               ) : (
                 <Play className="w-5 h-5 text-white" />
