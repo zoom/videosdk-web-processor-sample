@@ -1,4 +1,51 @@
+// @ts-ignore - Import jsrsasign without type definitions
 import { KJUR } from 'jsrsasign';
+
+/**
+ * Save data to localStorage
+ * @param key Key for the storage
+ * @param value Value to save
+ */
+export function saveToStorage<T>(key: string, value: T): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (error) {
+    console.error('Failed to save data to localStorage:', error);
+  }
+}
+
+/**
+ * Load data from localStorage
+ * @param key The storage key to load from
+ * @param defaultValue Default value if none exists
+ * @returns The saved data if it exists, or the default value if none exists
+ */
+export function loadFromStorage<T>(key: string, defaultValue: T): T {
+  try {
+    const value = localStorage.getItem(key);
+    if (!value) {
+      return defaultValue;
+    }
+    
+    const parsedValue = JSON.parse(value) as T;
+    return { ...defaultValue, ...parsedValue };
+  } catch (error) {
+    console.error('Failed to load data from localStorage:', error);
+    return defaultValue;
+  }
+}
+
+/**
+ * Clear data from localStorage
+ * @param key The storage key to clear
+ */
+export function clearFromStorage(key: string): void {
+  try {
+    localStorage.removeItem(key);
+  } catch (error) {
+    console.error('Failed to clear data from localStorage:', error);
+  }
+}
 
 // eslint-disable-next-line max-params
 export function generateVideoToken(
