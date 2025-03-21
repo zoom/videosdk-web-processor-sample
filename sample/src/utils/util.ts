@@ -57,7 +57,9 @@ export function generateVideoToken(
   roleType = 1,
   cloud_recording_option = '',
   cloud_recording_election = '',
-  telemetry_tracking_id = ''
+  telemetry_tracking_id = '',
+  video_webrtc_mode = 0,
+  audio_webrtc_mode = 0,
 ) {
   let signature = '';
   try {
@@ -72,7 +74,9 @@ export function generateVideoToken(
       iat,
       exp,
       tpc: topic,
-      role_type: roleType
+      role_type: roleType,
+      video_webrtc_mode,
+      audio_webrtc_mode,
     };
     if (cloud_recording_election === '' && cloud_recording_option === '1') {
       Object.assign(oPayload, {

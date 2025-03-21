@@ -2,8 +2,9 @@ import { Binary, Share, Gauge, Radio, Wifi } from "lucide-react";
 import BypassAudio from "../../components/parameters/BypassAudio";
 import AudioClassification from "../../components/parameters/AudioClassification";
 import TextToSpeech from "../../components/parameters/TextToSpeech";
+import { ProcessorConfig } from "../../index-types";
 
-export default {
+const audioConfig: Record<string, ProcessorConfig> = {
   "bypass-audio-processor": {
     id: "bypass-audio-processor",
     url: window.origin + "/bypass-audio-processor.js",
@@ -22,7 +23,7 @@ export default {
       setup: `npm install @media/aac-encoder`,
       usage: ``,
     },
-    isInDevelopment: true,
+    // isInDevelopment: true,
   },
   // ... other audio processors remain the same
   "audio-classification-processor": {
@@ -77,3 +78,5 @@ function AudioProcessor() {
     isInDevelopment: true,
   },
 };
+
+export default audioConfig;

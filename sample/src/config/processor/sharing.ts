@@ -7,9 +7,15 @@ import {
   Lock,
   Layout,
 } from "lucide-react";
+import { ProcessorConfig } from "../../index-types";
+import BypassAudio from "../../components/parameters/BypassAudio";
 
-export default {
-  1: {
+const sharingConfig: Record<string, ProcessorConfig> = {
+  "Social-Media-Share": {
+    id: '',
+    url: '',
+    options: {},
+    render: BypassAudio,
     name: "Social Media Share",
     description: "Direct integration with major social platforms",
     features: [
@@ -36,7 +42,11 @@ function ShareProcessor() {
     },
   },
   // ... other sharing processors remain the same
-  2: {
+  "Link-Generator": {
+    id: '',
+    url: '',
+    options: {},
+    render: BypassAudio,
     name: "Link Generator",
     description: "Create shareable links with custom parameters",
     features: [
@@ -63,6 +73,10 @@ function LinkProcessor() {
     },
   },
   3: {
+    id: '',
+    url: '',
+    options: {},
+    render: BypassAudio,
     name: "Embed Code",
     description: "Generate embed codes for websites and platforms",
     features: [
@@ -89,3 +103,5 @@ function EmbedProcessor() {
     },
   },
 };
+
+export default sharingConfig;

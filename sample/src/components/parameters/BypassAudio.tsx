@@ -2,23 +2,25 @@ import React, { useState, useRef, useContext } from "react";
 import { Processor } from "@zoom/videosdk";
 import ZoomMediaContext from "../../context/media-context";
 import { Settings, Play, Pause, Upload } from "lucide-react";
+import { useAudio } from "../../hooks/useSelfAudio";
 
 type ProcessorInfo = {
   processor: Processor;
 };
 
 function BypassAudio({ processor }: ProcessorInfo) {
-  const { mediaStream, selectAudioProcessor } = useContext(ZoomMediaContext);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const { mediaStream } = useContext(ZoomMediaContext);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const processorRef = useRef<Processor | undefined>();
-  processorRef.current = processor;
 
-  const handleToggleAudio = async () => {
-    await mediaStream?.startAudio();
-    setIsPlaying(!isPlaying);
-    await mediaStream?.unmuteAudio();
-  };
+  const { audioOn, handleToggleAudio } = useAudio();
+
+  // const m = () => {
+  //   mediaStream?.removeProcessor(processor);
+  // };
+
+  // const n = () => {
+  //   mediaStream?.addProcessor(processor);
+  // };
 
   return (
     <>
@@ -31,12 +33,14 @@ function BypassAudio({ processor }: ProcessorInfo) {
               className="p-2 rounded-lg bg-blue-500 hover:bg-blue-600 transition-colors"
               onClick={handleToggleAudio}
             >
-              {isPlaying ? (
+              {audioOn ? (
                 <Pause className="w-5 h-5 text-white" />
               ) : (
                 <Play className="w-5 h-5 text-white" />
               )}
             </button>
+            {/* <div onClick={m}>m</div>
+            <div onClick={n}>n</div> */}
           </div>
         </div>
         <canvas

@@ -372,10 +372,10 @@ function App(props: AppProps) {
   }
 
   const [selectedVideoProcessor, selectVideoProcessor, videoProcessorMapRef] =
-    useSelectProcessor("video", mediaStream);
+    useSelectProcessor("video");
 
   const [selectedAudioProcessor, selectAudioProcessor, audioProcessorMapRef] =
-    useSelectProcessor("audio", mediaStream);
+    useSelectProcessor("audio");
 
   const mediaContext = useMemo(
     () => ({
@@ -418,8 +418,13 @@ function App(props: AppProps) {
   }
   useEffect(() => {
     const init = async () => {
-      await zmClient.init("en-US", `${window.location.origin}/lib`, {
-        // await zmClient.init('en-US', `${window.location.origin}${process.env.PUBLIC_URL}/lib`, {
+      const dependentAssets = localStorage.getItem("dependent_assets_version")
+        ? `https://d27xp8zu78jmsf.cloudfront.net/web-media/${localStorage.getItem(
+            "version"
+          )}`
+        : `${window.location.origin}/lib`;
+
+      await zmClient.init("en-US", dependentAssets, {
         webEndpoint,
         enforceMultipleVideos: galleryViewWithoutSAB,
         enforceVirtualBackground: vbWithoutSAB,

@@ -2,17 +2,19 @@ import { Processor } from "@zoom/videosdk";
 import { useRef, useState } from "react";
 import type { MediaStream } from "../index-types";
 
-export function useSelectProcessor(type: "video" | "audio", mediaStream: MediaStream | null) {
+export function useSelectProcessor(type: "video" | "audio") {
   const [selectedProcessor, setSelectedProcessor] = useState<string>("");
   const processorMapRef = useRef(new Map<string, Processor>());
   const processorRef = useRef<Processor | undefined>();
 
   const selectProcessor = async (
+    mediaStream: MediaStream,
     name: string,
     url: string,
     options: any,
     initCallback: (port: MessagePort) => void
   ) => {
+    if (!mediaStream) return;
     setSelectedProcessor(name);
     if (processorRef.current) {
       mediaStream?.removeProcessor(processorRef.current);

@@ -52,7 +52,7 @@ To get started, clone the repo:
 
 ## Usage
 
-1. Navigate to http://localhost:3000 and click Media Processor.
+1. Navigate to http://localhost:5173/ 
 
 2. Start video and select a processor, enjoy it.
 
