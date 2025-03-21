@@ -59,7 +59,9 @@ if (!meetingArgs.signature && meetingArgs.sdkSecret && meetingArgs.topic) {
     Number(meetingArgs.role ?? 1),
     meetingArgs.cloud_recording_option,
     meetingArgs.cloud_recording_election,
-    meetingArgs.telemetry_tracking_id
+    meetingArgs.telemetry_tracking_id,
+    localStorage.getItem('video_webrtc_mode') === '1' ? 1 : 0,
+    localStorage.getItem('audio_webrtc_mode') === '1' ? 1 : 0
   );
   console.log('=====================================');
   console.log('meetingArgs', meetingArgs);
