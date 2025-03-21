@@ -6,6 +6,7 @@ import App from './App';
 import { devConfig } from './config/dev';
 import ZoomContext from './context/zoom-context';
 import './index.css';
+import { loadConfigFromStorage } from './utils/sessionConfig';
 
 let meetingArgs: any = Object.fromEntries(new URLSearchParams(location.search));
 // Add enforceGalleryView to turn on the gallery view without SharedAddayBuffer
@@ -60,8 +61,8 @@ if (!meetingArgs.signature && meetingArgs.sdkSecret && meetingArgs.topic) {
     meetingArgs.cloud_recording_option,
     meetingArgs.cloud_recording_election,
     meetingArgs.telemetry_tracking_id,
-    localStorage.getItem('video_webrtc_mode') === '1' ? 1 : 0,
-    localStorage.getItem('audio_webrtc_mode') === '1' ? 1 : 0
+    loadConfigFromStorage().webRTCVideo === 'true' ? 1 : 0,
+    loadConfigFromStorage().webRTCAudio === 'true' ? 1 : 0
   );
   console.log('=====================================');
   console.log('meetingArgs', meetingArgs);

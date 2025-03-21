@@ -42,7 +42,11 @@ import ZoomContext from "./context/zoom-context";
 import type { MediaStream } from "./index-types";
 import ZoomMediaContext from "./context/media-context";
 import { useSelectProcessor } from "./hooks/useSelectProcessor";
-import { loadConfigFromStorage, saveConfigToStorage, SessionConfig } from "./utils/sessionConfig";
+import {
+  loadConfigFromStorage,
+  saveConfigToStorage,
+  SessionConfig,
+} from "./utils/sessionConfig";
 
 type CustomElement<T> = Partial<T & DOMAttributes<T> & { children: any }>;
 
@@ -136,12 +140,14 @@ function HomePage({ loading }: { loading: boolean }) {
   const navigate = useNavigate();
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [showToast, setShowToast] = useState(false);
-  const [config, setConfig] = useState<SessionConfig>(() => loadConfigFromStorage());
+  const [config, setConfig] = useState<SessionConfig>(() =>
+    loadConfigFromStorage()
+  );
 
   const handleInputChange = (field: string, value: string) => {
-    setConfig(prev => ({
+    setConfig((prev) => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
   };
 
@@ -149,7 +155,7 @@ function HomePage({ loading }: { loading: boolean }) {
     saveConfigToStorage(config);
     setIsConfigOpen(false);
     setShowToast(true);
-    
+
     // Hide toast after 2.5 seconds
     setTimeout(() => {
       const newConfig = loadConfigFromStorage();
@@ -206,14 +212,18 @@ function HomePage({ loading }: { loading: boolean }) {
                   </button>
                 </div>
               </div>
-              
+
               <div className="p-4 space-y-4">
                 {/* WebRTC Audio */}
                 <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-1">WebRTC Audio</h4>
-                  <select 
+                  <h4 className="text-sm font-medium text-gray-700 mb-1">
+                    WebRTC Audio
+                  </h4>
+                  <select
                     value={config.webRTCAudio}
-                    onChange={(e) => handleInputChange('webRTCAudio', e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("webRTCAudio", e.target.value)
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value="auto">Auto</option>
@@ -221,13 +231,17 @@ function HomePage({ loading }: { loading: boolean }) {
                     <option value="false">False</option>
                   </select>
                 </div>
-                
+
                 {/* WebRTC Video */}
                 <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-1">WebRTC Video</h4>
-                  <select 
+                  <h4 className="text-sm font-medium text-gray-700 mb-1">
+                    WebRTC Video
+                  </h4>
+                  <select
                     value={config.webRTCVideo}
-                    onChange={(e) => handleInputChange('webRTCVideo', e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("webRTCVideo", e.target.value)
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value="auto">Auto</option>
@@ -235,13 +249,15 @@ function HomePage({ loading }: { loading: boolean }) {
                     <option value="false">False</option>
                   </select>
                 </div>
-                
+
                 {/* COEP */}
                 <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-1">COEP</h4>
-                  <select 
+                  <h4 className="text-sm font-medium text-gray-700 mb-1">
+                    COEP
+                  </h4>
+                  <select
                     value={config.coep}
-                    onChange={(e) => handleInputChange('coep', e.target.value)}
+                    onChange={(e) => handleInputChange("coep", e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value="disable corp">Disable CORP</option>
@@ -249,24 +265,28 @@ function HomePage({ loading }: { loading: boolean }) {
                     <option value="credentialless">Credentialless</option>
                   </select>
                 </div>
-                
+
                 {/* SDK Version */}
                 <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-1">SDK Version</h4>
-                  <input 
+                  <h4 className="text-sm font-medium text-gray-700 mb-1">
+                    SDK Version
+                  </h4>
+                  <input
                     type="text"
                     value={config.sdkVersion}
-                    onChange={(e) => handleInputChange('sdkVersion', e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("sdkVersion", e.target.value)
+                    }
                     placeholder="e.g., 2.11.0"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
               </div>
             </div>
-            
+
             {/* Backdrop for closing when clicking outside */}
-            <div 
-              className="fixed inset-0 z-40" 
+            <div
+              className="fixed inset-0 z-40"
               onClick={() => setIsConfigOpen(false)}
             ></div>
           </>
@@ -322,9 +342,9 @@ function HomePage({ loading }: { loading: boolean }) {
       </div>
 
       {/* Toast notification */}
-      <div 
+      <div
         className={`fixed bottom-10 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg z-50 flex items-center transition-opacity duration-300 ${
-          showToast ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          showToast ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
       >
         <Save className="w-5 h-5 mr-2" />
@@ -418,10 +438,9 @@ function App(props: AppProps) {
   }
   useEffect(() => {
     const init = async () => {
-      const dependentAssets = localStorage.getItem("dependent_assets_version")
-        ? `https://d27xp8zu78jmsf.cloudfront.net/web-media/${localStorage.getItem(
-            "version"
-          )}`
+      const version = loadConfigFromStorage()?.sdkVersion;
+      const dependentAssets = version
+        ? `https://d27xp8zu78jmsf.cloudfront.net/web-media/${version}`
         : `${window.location.origin}/lib`;
 
       await zmClient.init("en-US", dependentAssets, {
