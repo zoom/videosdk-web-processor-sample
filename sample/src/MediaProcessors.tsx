@@ -178,7 +178,7 @@ function MediaProcessors() {
               />
 
               {/* Card Content */}
-              <div className="relative bg-white/90 backdrop-blur-sm rounded-2xl p-8 transition-all duration-300 transform hover:-translate-y-2 hover:shadow-2xl border border-gray-100">
+              <div className="relative bg-white/90 backdrop-blur-sm rounded-2xl p-8 transition-all duration-300 transform hover:-translate-y-2 hover:shadow-2xl border border-gray-100 flex flex-col h-[320px]">
                 <div className="flex items-center space-x-4 mb-6">
                   <div className="p-4 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl transform transition-transform group-hover:scale-110 group-hover:rotate-3">
                     {processor.icon}
@@ -187,9 +187,11 @@ function MediaProcessors() {
                     {processor.name}
                   </h3>
                 </div>
-                <p className="text-gray-600 mb-6 text-lg">
-                  {processor.description}
-                </p>
+                <div className="flex-1 mb-6">
+                  <p className="text-gray-600 text-lg line-clamp-3">
+                    {processor.description}
+                  </p>
+                </div>
                 <button
                   onClick={() => handleLearnMore(processor)}
                   className={`w-full bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 transform hover:shadow-lg hover:shadow-blue-200 hover:scale-105 ${

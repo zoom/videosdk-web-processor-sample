@@ -1,4 +1,4 @@
-import { Box, Binary, Gauge, Cpu, Video } from "lucide-react";
+import { Box, Binary, Gauge, Cpu, Video, Globe, Smartphone, Monitor, Apple, Laptop, SmartphoneIcon } from "lucide-react";
 import DualMask from "../../components/parameters/DualMask";
 import WatermarkEffect from "../../components/parameters/WatermarkEffect";
 import { ProcessorConfig } from "../../index-types";
@@ -17,6 +17,13 @@ const videoConfig: Record<string, ProcessorConfig> = {
     description:
       "Detect the face region in the video source and show it, other regions will be covered by the background image.",
     features: [{ icon: Video, text: "video pre-processor" }],
+    platforms: [
+      { icon: Globe, text: "Web" },
+      { icon: Smartphone, text: "Android" },
+      { icon: Apple, text: "iOS" },
+      { icon: Laptop, text: "Windows" },
+      { icon: Monitor, text: "Mac" }
+    ],
     implementation: {
       usage: `
           // how to use ZoomDualMaskVideoProcessor in VideoSDK
@@ -113,6 +120,11 @@ const videoConfig: Record<string, ProcessorConfig> = {
     description:
       "Add text similar to a watermark effect to the video source and send it to other attendees.",
     features: [{ icon: Video, text: "video pre-processor" }],
+    platforms: [
+      { icon: Globe, text: "Web" },
+      { icon: Smartphone, text: "Android" },
+      { icon: Apple, text: "iOS" }
+    ],
     implementation: {
       usage: `
           const processor: Processor = stream.createProcessor({

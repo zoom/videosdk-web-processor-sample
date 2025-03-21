@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Play, Code, FileCode, Terminal } from "lucide-react";
+import { ArrowLeft, Play, Code, FileCode, Terminal, Globe, Smartphone, Monitor } from "lucide-react";
 import VideoProcessor from "./processors/VideoProcessor";
 import AudioProcessor from "./processors/AudioProcessor";
 import SharingProcessor from "./processors/SharingProcessor";
@@ -50,9 +50,18 @@ function ProcessorDetail() {
             </button>
           </div>
           <div className="py-8">
-            <h1 className="text-4xl font-bold text-white mb-4">
-              {details.name}
-            </h1>
+            <div className="flex items-center gap-4 mb-4">
+              <h1 className="text-4xl font-bold text-white">
+                {details.name}
+              </h1>
+              {details.platforms && (
+                <div className="bg-white/10 backdrop-blur-sm rounded-lg px-3 py-1.5 inline-flex items-center space-x-2">
+                  {details.platforms.map(({ icon: Icon }, index) => (
+                    <Icon key={index} className="w-4 h-4 text-white/70" />
+                  ))}
+                </div>
+              )}
+            </div>
             <p className="text-xl text-white/90 mb-8">{details.description}</p>
             <div className="flex flex-wrap gap-3">
               {details.features.map(({ icon: Icon, text }, index) => (
