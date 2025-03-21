@@ -31,6 +31,9 @@ import {
   Volume2,
   Link,
   Wand2,
+  Settings,
+  X,
+  Save,
 } from "lucide-react";
 import MediaProcessors from "./MediaProcessors";
 import ProcessorDetail from "./components/ProcessorDetail";
@@ -39,6 +42,7 @@ import ZoomContext from "./context/zoom-context";
 import type { MediaStream } from "./index-types";
 import ZoomMediaContext from "./context/media-context";
 import { useSelectProcessor } from "./hooks/useSelectProcessor";
+import { loadConfigFromStorage, saveConfigToStorage, SessionConfig } from "./utils/sessionConfig";
 
 type CustomElement<T> = Partial<T & DOMAttributes<T> & { children: any }>;
 
@@ -130,6 +134,29 @@ declare global {
 
 function HomePage({ loading }: { loading: boolean }) {
   const navigate = useNavigate();
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
+  const [showToast, setShowToast] = useState(false);
+  const [config, setConfig] = useState<SessionConfig>(() => loadConfigFromStorage());
+
+  const handleInputChange = (field: string, value: string) => {
+    setConfig(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleSaveConfig = () => {
+    saveConfigToStorage(config);
+    setIsConfigOpen(false);
+    setShowToast(true);
+    
+    // Hide toast after 2.5 seconds
+    setTimeout(() => {
+      const newConfig = loadConfigFromStorage();
+      console.log("newConfig", JSON.stringify(newConfig));
+      setShowToast(false);
+    }, 2500);
+  };
 
   return (
     <div
@@ -143,6 +170,108 @@ function HomePage({ loading }: { loading: boolean }) {
     >
       {/* Overlay */}
       <div className="absolute inset-0 bg-white bg-opacity-90"></div>
+
+      {/* Configuration Button - top right */}
+      <div className="absolute top-4 right-4 z-20">
+        <button
+          onClick={() => setIsConfigOpen(true)}
+          className="p-3 rounded-full bg-white/80 text-blue-600 hover:bg-blue-50 shadow-md hover:shadow-lg transition-all duration-200"
+          aria-label="Configure Settings"
+        >
+          <Settings className="w-5 h-5" />
+        </button>
+
+        {/* Configuration Dialog - anchored to icon */}
+        {isConfigOpen && (
+          <>
+            <div className="absolute top-12 right-0 w-80 bg-white rounded-lg shadow-xl z-50 overflow-hidden">
+              <div className="p-4 border-b border-gray-100 flex justify-between items-center">
+                <h3 className="text-lg font-semibold text-gray-800">
+                  Configuration
+                </h3>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={handleSaveConfig}
+                    className="p-1.5 rounded-full text-blue-600 hover:bg-blue-50 transition-colors"
+                    aria-label="Save Configuration"
+                  >
+                    <Save className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => setIsConfigOpen(false)}
+                    className="p-1.5 rounded-full text-gray-500 hover:bg-gray-100 transition-colors"
+                    aria-label="Cancel"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="p-4 space-y-4">
+                {/* WebRTC Audio */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-1">WebRTC Audio</h4>
+                  <select 
+                    value={config.webRTCAudio}
+                    onChange={(e) => handleInputChange('webRTCAudio', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="auto">Auto</option>
+                    <option value="true">True</option>
+                    <option value="false">False</option>
+                  </select>
+                </div>
+                
+                {/* WebRTC Video */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-1">WebRTC Video</h4>
+                  <select 
+                    value={config.webRTCVideo}
+                    onChange={(e) => handleInputChange('webRTCVideo', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="auto">Auto</option>
+                    <option value="true">True</option>
+                    <option value="false">False</option>
+                  </select>
+                </div>
+                
+                {/* COEP */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-1">COEP</h4>
+                  <select 
+                    value={config.coep}
+                    onChange={(e) => handleInputChange('coep', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="disable corp">Disable CORP</option>
+                    <option value="require corp">Require CORP</option>
+                    <option value="credentialless">Credentialless</option>
+                  </select>
+                </div>
+                
+                {/* SDK Version */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-1">SDK Version</h4>
+                  <input 
+                    type="text"
+                    value={config.sdkVersion}
+                    onChange={(e) => handleInputChange('sdkVersion', e.target.value)}
+                    placeholder="e.g., 2.11.0"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+            </div>
+            
+            {/* Backdrop for closing when clicking outside */}
+            <div 
+              className="fixed inset-0 z-40" 
+              onClick={() => setIsConfigOpen(false)}
+            ></div>
+          </>
+        )}
+      </div>
 
       {/* Floating Icons */}
       <div className="absolute inset-0 pointer-events-none">
@@ -165,7 +294,7 @@ function HomePage({ loading }: { loading: boolean }) {
             Amazing media processors from Zoom!
           </h1>
         </div>
-        <p className="text-xl text-gray-600 mb-8">
+        <p className="text-xl text-gray-600 mb-8" hidden>
           Transform your media with our powerful processing tools. Edit,
           convert, and share with ease.
         </p>
@@ -190,6 +319,16 @@ function HomePage({ loading }: { loading: boolean }) {
             <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
           )}
         </button>
+      </div>
+
+      {/* Toast notification */}
+      <div 
+        className={`fixed bottom-10 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg z-50 flex items-center transition-opacity duration-300 ${
+          showToast ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+      >
+        <Save className="w-5 h-5 mr-2" />
+        <p>Configuration saved successfully</p>
       </div>
 
       {/* Logo at bottom center */}

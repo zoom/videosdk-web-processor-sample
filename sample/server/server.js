@@ -1,7 +1,9 @@
-const express = require("express");
-const cors = require("cors");
-const { AssemblyAI } = require("assemblyai");
-require("dotenv").config();
+import express from "express";
+import cors from "cors";
+import { AssemblyAI } from "assemblyai";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const aaiClient = new AssemblyAI({ apiKey: process.env.ASSEMBLYAI_API_KEY });
 const app = express();
