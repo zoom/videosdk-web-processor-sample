@@ -233,10 +233,10 @@ function App(props: AppProps) {
   }
 
   const [selectedVideoProcessor, selectVideoProcessor, videoProcessorMapRef] =
-    useSelectProcessor("video", mediaStream);
+    useSelectProcessor("video");
 
   const [selectedAudioProcessor, selectAudioProcessor, audioProcessorMapRef] =
-    useSelectProcessor("audio", mediaStream);
+    useSelectProcessor("audio");
 
   const mediaContext = useMemo(
     () => ({

@@ -5,12 +5,13 @@ import processorConfig from "../config/processor";
 
 export function useLoadProcessor(id: string, type: "audio" | "video") {
   const {
+    mediaStream,
     selectVideoProcessor,
     selectedVideoProcessor,
     videoProcessorMapRef,
     selectAudioProcessor,
     selectedAudioProcessor,
-    audioProcessorMapRef
+    audioProcessorMapRef,
   } = useContext(ZoomMediaContext);
   const [processor, setProcessor] = useState<Processor | undefined>();
   const [processorLoaded, setProcessorLoaded] = useState(false);
@@ -37,15 +38,22 @@ export function useLoadProcessor(id: string, type: "audio" | "video") {
   }, [type]);
 
   useEffect(() => {
+    if (!mediaStream) return;
     const c = processorConfig[type][id];
     if (!c) return;
 
     console.log(`Loading ${type} processor: ${c.id}`);
 
-    selectProcessor(c.id, c.url, c.options, async (port: MessagePort) => {
-      setProcessorLoaded(true);
-    });
-  }, [id]);
+    selectProcessor(
+      mediaStream,
+      c.id,
+      c.url,
+      c.options,
+      async (port: MessagePort) => {
+        setProcessorLoaded(true);
+      }
+    );
+  }, [id, mediaStream]);
 
   useEffect(() => {
     if (processorLoaded) {
