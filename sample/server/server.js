@@ -5,14 +5,18 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const aaiClient = new AssemblyAI({ apiKey: process.env.ASSEMBLYAI_API_KEY });
+const DEFAULT_API_KEY = "";
+
 const app = express();
 app.use(express.json());
 app.use(cors());
 
 app.get("/token", async (req, res) => {
   try {
-    const token = await aaiClient.realtime.createTemporaryToken({
+    const apiKey = req.query.apiKey || DEFAULT_API_KEY;
+    const client = new AssemblyAI({ apiKey: apiKey });
+    
+    const token = await client.realtime.createTemporaryToken({
       expires_in: 3600,
     });
     res.json({ token });

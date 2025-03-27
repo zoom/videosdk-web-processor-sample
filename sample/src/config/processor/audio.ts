@@ -1,7 +1,7 @@
-import { Binary, Share, Gauge, Radio, Wifi } from "lucide-react";
+import { Binary, Share, Gauge, Radio, Wifi, Speech, AudioLines } from "lucide-react";
 import BypassAudio from "../../components/parameters/BypassAudio";
 import AudioClassification from "../../components/parameters/AudioClassification";
-import TextToSpeech from "../../components/parameters/TextToSpeech";
+import SpeechToText from "../../components/parameters/SpeechToText";
 import { ProcessorConfig } from "../../index-types";
 
 const audioConfig: Record<string, ProcessorConfig> = {
@@ -46,18 +46,16 @@ const audioConfig: Record<string, ProcessorConfig> = {
     },
     isInDevelopment: true,
   },
-  "text-to-speech-processor": {
-    id: "text-to-speech-processor",
-    url: window.origin + "/text-to-speech-processor.js",
+  "speech-to-text-processor": {
+    id: "speech-to-text-processor",
+    url: window.origin + "/speech-to-text-processor.js",
     options: {},
-    render: TextToSpeech,
-    name: "Text-to-Speech Processor",
+    render: SpeechToText,
+    name: "Speech-to-Text Processor",
     description: "Convert real-time audio stream to text",
     features: [
-      { icon: Wifi, text: "Low-latency processing" },
-      { icon: Gauge, text: "Adaptive bit rate" },
-      { icon: Radio, text: "Speech and music optimization" },
-      { icon: Binary, text: "Error resilience" },
+      { icon: Speech, text: "AssemblyAI API" },
+      { icon: AudioLines, text: "audio pre-processing" },
     ],
     implementation: {
       setup: `npm install @media/opus-codec`,

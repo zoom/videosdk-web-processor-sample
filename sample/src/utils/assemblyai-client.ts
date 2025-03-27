@@ -9,11 +9,11 @@ export class AssemblyAIClient {
   }
 
   async getToken() {
-    const response = await fetch("http://localhost:8000/token");
+    const response = await fetch(`http://localhost:8000/token?apiKey=${encodeURIComponent(this.apiKey)}`);
     const data = await response.json();
 
     if (data.error) {
-      alert(data.error);
+      console.error(`AssemblyAI getToken error: ${data.error}`);
     }
 
     return data.token;
@@ -26,12 +26,38 @@ export class AssemblyAIClient {
         sampleRate: 16_000,
       });
 
+      
+      this.realtimeTranscriber.on('error', event => {
+        console.error(event);
+        this.realtimeTranscriber.close();
+        this.realtimeTranscriber = null;
+      });
+
+      this.realtimeTranscriber.on('close', (code, reason) => {
+        console.log(`Connection closed: ${code} ${reason}`);
+        this.realtimeTranscriber = null;
+      });
+
       const texts: { [key: number]: string } = {};
+      const cleanupInterval = setInterval(() => {
+        const now = Date.now();
+        const oldKeys = Object.keys(texts).map(Number).filter(key => (now - key) > 30000);
+        oldKeys.forEach(key => delete texts[key]);
+      }, 30000);
+      
+      this.realtimeTranscriber.on('close', () => {
+        clearInterval(cleanupInterval);
+      });
+      
       this.realtimeTranscriber.on("transcript", (message: { audio_start: number; text: string }) => {
         let msg = "";
+        console.log("message:", message);
         texts[message.audio_start] = message.text;
-        const keys = Object.keys(texts).map(Number);
-        keys.sort((a, b) => a - b);
+        
+        const keys = Object.keys(texts).map(Number)
+          .filter(key => key > message.audio_start - 10000)
+          .sort((a, b) => a - b);
+          
         for (const key of keys) {
           if (texts[key]) {
             msg += ` ${texts[key]}`;

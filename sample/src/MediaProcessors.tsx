@@ -55,8 +55,8 @@ const audioProcessors: Processor[] = [
     // isInDevelopment: true,
   },
   {
-    id: "text-to-speech-processor",
-    name: "Text-to-Speech Processor",
+    id: "speech-to-text-processor",
+    name: "Speech-to-Text Processor",
     description: "Convert real-time audio stream to text",
     icon: <Speech className="w-6 h-6" />,
     // isInDevelopment: true,
