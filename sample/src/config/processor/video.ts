@@ -2,6 +2,7 @@ import { Box, Binary, Gauge, Cpu, Video, Globe, Smartphone, Monitor, Apple, Lapt
 import DualMask from "../../components/parameters/DualMask";
 import WatermarkEffect from "../../components/parameters/WatermarkEffect";
 import { ProcessorConfig } from "../../index-types";
+import GamerLive from "../../components/parameters/GamerLive";
 
 const baseUrl = window.origin;
 
@@ -208,6 +209,43 @@ const videoConfig: Record<string, ProcessorConfig> = {
     },
     isInDevelopment: false,
   },
+
+  "gamer-live-video-processor": {
+    id: "gamer-live-video-processor",
+    url: baseUrl + "/gamer-live-video-processor.js",
+    options: {
+      assetsUrlBase: baseUrl + "/assets/mediapipe",
+    },
+    render: GamerLive,
+    name: "Gamer Live",
+    description:
+      "Detect the face region in the video source and show it, other regions will be covered by the background image.",
+    features: [{ icon: Video, text: "video pre-processor" }],
+    platforms: [
+      { icon: Globe, text: "Web" },
+      { icon: Smartphone, text: "Android" },
+      { icon: Apple, text: "iOS" }
+    ],
+    implementation: {
+      usage: `
+          const processor: Processor = stream.createProcessor({
+            url: 'https://example.com/gamer-live-video-processor.js',
+            name: 'gamer-live-video-processor',
+            type: 'video',
+            options: {
+              croppingShape: CROPPING_SHAPE.ELLIPSE,
+              scaleFactor: 1.0,
+              useAngle: false,
+              zoomVideo: false,
+            }
+          });
+
+          stream.addProcessor(processor);
+        `,
+      example: "",
+    },
+    isInDevelopment: true,
+  }
 };
 
 export default videoConfig;

@@ -8,6 +8,7 @@ import {
   Link,
   Speech,
   Waves,
+  Gamepad
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -36,6 +37,13 @@ const videoProcessors: Processor[] = [
     icon: <Waves className="w-6 h-6" />,
     isInDevelopment: false,
   },
+  {
+    id: "gamer-live-video-processor",
+    name: "Gamer Live",
+    description: "Simulate a gaming live stream with a facecam overlay.",
+    icon: <Gamepad className="w-6 h-6" />,
+    isInDevelopment: false,
+  }
 ];
 
 const audioProcessors: Processor[] = [
