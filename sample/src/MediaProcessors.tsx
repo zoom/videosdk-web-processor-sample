@@ -8,7 +8,8 @@ import {
   Link,
   Speech,
   Waves,
-  Gamepad
+  Gamepad,
+  Mic,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -43,7 +44,7 @@ const videoProcessors: Processor[] = [
     description: "Simulate a gaming live stream with a facecam overlay.",
     icon: <Gamepad className="w-6 h-6" />,
     isInDevelopment: false,
-  }
+  },
 ];
 
 const audioProcessors: Processor[] = [
@@ -68,6 +69,13 @@ const audioProcessors: Processor[] = [
     description: "Convert real-time audio stream to text",
     icon: <Speech className="w-6 h-6" />,
     // isInDevelopment: true,
+  },
+  {
+    id: "local-recording-processor",
+    name: "Local Recording Processor",
+    description:
+      "Record audio from the local microphone and send it to the server.",
+    icon: <Mic className="w-6 h-6" />,
   },
 ];
 

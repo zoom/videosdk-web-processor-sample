@@ -1,8 +1,17 @@
-import { Binary, Share, Gauge, Radio, Wifi, Speech, AudioLines } from "lucide-react";
+import {
+  Binary,
+  Share,
+  Gauge,
+  Radio,
+  Wifi,
+  Speech,
+  AudioLines,
+} from "lucide-react";
 import BypassAudio from "../../components/parameters/BypassAudio";
 import AudioClassification from "../../components/parameters/AudioClassification";
 import SpeechToText from "../../components/parameters/SpeechToText";
 import { ProcessorConfig } from "../../index-types";
+import LocalRecording from "../../components/parameters/LocalRecording";
 
 const audioConfig: Record<string, ProcessorConfig> = {
   "bypass-audio-processor": {
@@ -74,6 +83,26 @@ function AudioProcessor() {
 }`,
     },
     isInDevelopment: true,
+  },
+  "local-recording-processor": {
+    id: "local-recording-processor",
+    url: window.origin + "/local_recording_processor.js",
+    options: {},
+    render: LocalRecording,
+    name: "Local Recording Processor",
+    description:
+      "Record audio from the local microphone and send it to the server.",
+    features: [
+      { icon: Radio, text: "Perceptual audio coding" },
+      { icon: Share, text: "Multi-channel support" },
+      { icon: Gauge, text: "Variable bit rate encoding" },
+      { icon: Binary, text: "Spectral band replication" },
+    ],
+    implementation: {
+      setup: `npm install @media/aac-encoder`,
+      usage: ``,
+    },
+    isInDevelopment: false,
   },
 };
 
