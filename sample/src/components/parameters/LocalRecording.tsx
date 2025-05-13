@@ -2,9 +2,10 @@ import React, { useState, useRef, useContext, useEffect } from "react";
 import ZoomMediaContext from "../../context/media-context";
 import { Mic, Loader2, Upload, Play } from "lucide-react";
 import { useAudio } from "../../hooks/useSelfAudio";
+import { Processor } from "@zoom/videosdk";
 
 type ProcessorInfo = {
-  processor: AudioWorkletNode;
+  processor: Processor;
 };
 
 function LocalRecording({ processor }: ProcessorInfo) {
@@ -20,12 +21,23 @@ function LocalRecording({ processor }: ProcessorInfo) {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const { audioOn, handleToggleAudio } = useAudio();
   const sampleRate = 48000;
+  const processorRef = useRef<Processor>();
 
   // 添加参数状态
   const [selectedSampleRate, setSelectedSampleRate] = useState(sampleRate);
   const [selectedFormat, setSelectedFormat] = useState("wav");
   const [maxDuration, setMaxDuration] = useState(300); // 默认5分钟
   const [volumeThreshold, setVolumeThreshold] = useState(0.1);
+
+  useEffect(() => {
+    processorRef.current = processor;
+    if (processorRef.current) {
+      console.log(`processor loaded: ${processorRef.current.name}`);
+      processorRef.current.port.onmessage = (event: MessageEvent) => {
+        console.log(`Received message from processor: ${event.data}`);
+      };
+    }
+  }, [processor]);
 
   // 倒计时效果
   useEffect(() => {
@@ -63,16 +75,42 @@ function LocalRecording({ processor }: ProcessorInfo) {
     // 这里添加停止录音的逻辑
     // 假设录音完成后会生成 recordedBlob
     // setRecordedBlob(generatedBlob);
+
+    // Stop Zoom audio
+    if (audioOn) {
+      if (processor && processor.port) {
+        processor.port.postMessage({
+          command: "stop",
+        });
+      }
+      handleToggleAudio();
+    }
   };
 
   const startRecording = async () => {
     setIsRecording(true);
     isRecordingRef.current = true;
     setRemainingTime(maxDuration);
-    // 清除之前的录音
+
+    // clear the previous recording data
     setRecordedBlob(null);
     setAudioUrl(null);
-    // 这里添加开始录音的逻辑
+
+    // Start Zoom audio
+    if (!audioOn) {
+      if (processor && processor.port) {
+        processor.port.postMessage({
+          command: "start",
+          config: {
+            sampleRate: selectedSampleRate,
+            numChannels: 2,
+            audioFormat: selectedFormat,
+            volumeThreshold: volumeThreshold,
+          },
+        });
+      }
+      handleToggleAudio();
+    }
   };
 
   const handleUpload = async () => {
