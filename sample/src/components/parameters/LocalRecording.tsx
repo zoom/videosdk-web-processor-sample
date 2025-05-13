@@ -35,9 +35,35 @@ function LocalRecording({ processor }: ProcessorInfo) {
       console.log(`processor loaded: ${processorRef.current.name}`);
       processorRef.current.port.onmessage = (event: MessageEvent) => {
         console.log(`Received message from processor: ${event.data}`);
+
+        // 处理来自处理器的消息
+        if (event.data && event.data.type === "encodedRecordingData") {
+          if (event.data.buffer) {
+            // 收到录音完成消息和音频数据
+            const arrayBuffer = event.data.buffer;
+
+            // 根据格式创建 MIME 类型
+            let mimeType = "audio/wav";
+            if (selectedFormat === "mp3") {
+              mimeType = "audio/mp3";
+            } else if (selectedFormat === "ogg") {
+              mimeType = "audio/ogg";
+            }
+
+            // 创建 Blob 对象
+            const audioBlob = new Blob([arrayBuffer], { type: mimeType });
+            setRecordedBlob(audioBlob);
+
+            // 创建 URL (会在 useEffect 中自动创建)
+            console.log("Recording completed and audio blob created");
+          } else if (event.data.status === "error") {
+            // 处理错误
+            console.error("Recording error:", event.data.error);
+          }
+        }
       };
     }
-  }, [processor]);
+  }, [processor, selectedFormat]);
 
   // 倒计时效果
   useEffect(() => {
@@ -60,21 +86,50 @@ function LocalRecording({ processor }: ProcessorInfo) {
 
   // 处理录音结束后的音频
   useEffect(() => {
-    if (recordedBlob && !audioUrl) {
-      const url = URL.createObjectURL(recordedBlob);
-      setAudioUrl(url);
-      return () => {
-        if (url) URL.revokeObjectURL(url);
-      };
+    // 清理之前的 URL
+    if (audioUrl) {
+      URL.revokeObjectURL(audioUrl);
+      setAudioUrl(null);
     }
-  }, [recordedBlob, audioUrl]);
+
+    if (recordedBlob && recordedBlob.size > 0) {
+      try {
+        const url = URL.createObjectURL(recordedBlob);
+        console.log("Created audio URL:", url);
+        setAudioUrl(url);
+
+        // 通知用户录音已完成，可以预览
+        console.log("Audio ready for preview");
+      } catch (error) {
+        console.error("Error creating object URL:", error);
+      }
+    }
+
+    // 仅在组件卸载时清理
+    return () => {
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+      }
+    };
+  }, [recordedBlob]);
+
+  // 将audioUrl加载到audioRef元素
+  useEffect(() => {
+    if (audioUrl && audioRef.current) {
+      try {
+        audioRef.current.src = audioUrl;
+        // 预加载音频以验证其有效性
+        audioRef.current.load();
+        console.log("Audio URL loaded to audio element");
+      } catch (error) {
+        console.error("Error loading audio:", error);
+      }
+    }
+  }, [audioUrl]);
 
   const stopRecording = () => {
     setIsRecording(false);
     isRecordingRef.current = false;
-    // 这里添加停止录音的逻辑
-    // 假设录音完成后会生成 recordedBlob
-    // setRecordedBlob(generatedBlob);
 
     // Stop Zoom audio
     if (audioOn) {
@@ -147,6 +202,11 @@ function LocalRecording({ processor }: ProcessorInfo) {
       audioRef.current.currentTime = 0;
       setIsPlaying(false);
     } else {
+      // 确保加载了正确的音频源
+      if (audioRef.current.src !== audioUrl) {
+        audioRef.current.src = audioUrl;
+      }
+
       audioRef.current.play().catch((err) => {
         console.error("Preview playback failed:", err);
       });
