@@ -22,10 +22,10 @@ function LocalRecording({ processor }: ProcessorInfo) {
   const sampleRate = 48000;
   const processorRef = useRef<Processor>();
 
-  // 添加参数状态
+  // states for UI
   const [selectedSampleRate, setSelectedSampleRate] = useState(sampleRate);
   const [selectedFormat, setSelectedFormat] = useState("wav");
-  const [maxDuration, setMaxDuration] = useState(300); // 默认5分钟
+  const [maxDuration, setMaxDuration] = useState(300);
   const [volumeThreshold, setVolumeThreshold] = useState(0.1);
   const [isComposing, setIsComposing] = useState(false);
   const [composingProgress, setComposingProgress] = useState(0);
@@ -35,32 +35,35 @@ function LocalRecording({ processor }: ProcessorInfo) {
     if (processorRef.current) {
       console.log(`processor loaded: ${processorRef.current.name}`);
       processorRef.current.port.onmessage = (event: MessageEvent) => {
-        console.log(`Received message from processor: ${event.data}`);
+        console.log(
+          `Received message from processor. type: ${event.data.type}`
+        );
 
-        // 处理来自处理器的消息
+        // handle the message from processor
         if (event.data) {
-          if (event.data.type === "encodedResult") {
+          if (event.data.type === "encoding") {
             if (event.data.buffer) {
-              // 收到录音完成消息和音频数据
+              // received the message of recording completed and audio data
               const arrayBuffer = event.data.buffer;
 
-              // 根据格式创建 MIME 类型
+              // create the MIME type based on the format
               let mimeType = "audio/wav";
               if (selectedFormat === "mp3") {
                 mimeType = "audio/mp3";
               }
 
-              // 创建 Blob 对象
+              // create the Blob object
               const audioBlob = new Blob([arrayBuffer], { type: mimeType });
               setRecordedBlob(audioBlob);
 
-              // 创建 URL (会在 useEffect 中自动创建)
+              // create the URL (will be created in the useEffect)
               console.log("Recording completed and audio blob created");
             } else if (event.data.status === "error") {
-              // 处理错误
+              // handle the error
               console.error("Recording error:", event.data.error);
             }
           } else if (event.data.type === "processing") {
+            // draw the audio data
             drawAudioData(event.data.audioData);
           }
         }
@@ -68,7 +71,7 @@ function LocalRecording({ processor }: ProcessorInfo) {
     }
   }, [processor, selectedFormat]);
 
-  // 倒计时效果
+  // countdown effect
   useEffect(() => {
     let timer: number | undefined;
     if (isRecording && remainingTime > 0) {
@@ -87,9 +90,9 @@ function LocalRecording({ processor }: ProcessorInfo) {
     };
   }, [isRecording, remainingTime]);
 
-  // 处理录音结束后的音频
+  // handle the audio after recording
   useEffect(() => {
-    // 清理之前的 URL
+    // clean the previous URL
     if (audioUrl) {
       URL.revokeObjectURL(audioUrl);
       setAudioUrl(null);
@@ -101,14 +104,14 @@ function LocalRecording({ processor }: ProcessorInfo) {
         console.log("Created audio URL:", url);
         setAudioUrl(url);
 
-        // 通知用户录音已完成，可以预览
+        // notify the user that the recording is completed and can be previewed
         console.log("Audio ready for preview");
       } catch (error) {
         console.error("Error creating object URL:", error);
       }
     }
 
-    // 仅在组件卸载时清理
+    // clean the URL when the component is unmounted
     return () => {
       if (audioUrl) {
         URL.revokeObjectURL(audioUrl);
@@ -116,12 +119,12 @@ function LocalRecording({ processor }: ProcessorInfo) {
     };
   }, [recordedBlob]);
 
-  // 将audioUrl加载到audioRef元素
+  // load the audioUrl to the audioRef element
   useEffect(() => {
     if (audioUrl && audioRef.current) {
       try {
         audioRef.current.src = audioUrl;
-        // 预加载音频以验证其有效性
+        // preload the audio to verify its validity
         audioRef.current.load();
         console.log("Audio URL loaded to audio element");
       } catch (error) {
@@ -222,7 +225,7 @@ function LocalRecording({ processor }: ProcessorInfo) {
       audioRef.current.currentTime = 0;
       setIsPlaying(false);
     } else {
-      // 确保加载了正确的音频源
+      // ensure the correct audio source is loaded
       if (audioRef.current.src !== audioUrl) {
         audioRef.current.src = audioUrl;
       }
@@ -268,7 +271,7 @@ function LocalRecording({ processor }: ProcessorInfo) {
     ctx.stroke();
   };
 
-  // 监听音频播放完成
+  // listen to the audio playback completion
   useEffect(() => {
     const audioElement = audioRef.current;
 
@@ -328,13 +331,13 @@ function LocalRecording({ processor }: ProcessorInfo) {
           ref={canvasRef}
           className="w-full h-48 bg-gray-900 rounded-lg"
         />
-        {/* 隐藏的音频元素用于预览 */}
+        {/* hidden audio element for preview */}
         <audio ref={audioRef} style={{ display: "none" }} />
       </div>
       <div className="bg-white rounded-2xl shadow-lg p-6">
         <h2 className="text-2xl font-bold text-gray-800 mb-4">Parameters</h2>
 
-        {/* 采样率选择 */}
+        {/* sample rate selection */}
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Sample Rate
@@ -351,7 +354,7 @@ function LocalRecording({ processor }: ProcessorInfo) {
           </select>
         </div>
 
-        {/* 音频格式选择 */}
+        {/* audio format selection */}
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Audio Format
@@ -367,7 +370,7 @@ function LocalRecording({ processor }: ProcessorInfo) {
           </select>
         </div>
 
-        {/* 最大录制时长 */}
+        {/* max recording duration */}
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Max Duration (seconds)
@@ -383,7 +386,7 @@ function LocalRecording({ processor }: ProcessorInfo) {
           />
         </div>
 
-        {/* 音量阈值 */}
+        {/* volume threshold */}
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Volume Threshold
@@ -403,7 +406,7 @@ function LocalRecording({ processor }: ProcessorInfo) {
           </div>
         </div>
 
-        {/* 预览和上传按钮 */}
+        {/* preview and upload buttons */}
         <div className="flex space-x-3 mt-6">
           <button
             onClick={handlePreview}
