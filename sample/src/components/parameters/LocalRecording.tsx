@@ -1,6 +1,6 @@
 import React, { useState, useRef, useContext, useEffect } from "react";
 import ZoomMediaContext from "../../context/media-context";
-import { Mic, Loader2, Upload, Play } from "lucide-react";
+import { Mic, Loader2, Upload, Play, Download } from "lucide-react";
 import { useAudio } from "../../hooks/useSelfAudio";
 import { Processor } from "@zoom/videosdk";
 
@@ -14,7 +14,6 @@ function LocalRecording({ processor }: ProcessorInfo) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [remainingTime, setRemainingTime] = useState(0);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
@@ -28,6 +27,8 @@ function LocalRecording({ processor }: ProcessorInfo) {
   const [selectedFormat, setSelectedFormat] = useState("wav");
   const [maxDuration, setMaxDuration] = useState(300); // 默认5分钟
   const [volumeThreshold, setVolumeThreshold] = useState(0.1);
+  const [isComposing, setIsComposing] = useState(false);
+  const [composingProgress, setComposingProgress] = useState(0);
 
   useEffect(() => {
     processorRef.current = processor;
@@ -37,28 +38,30 @@ function LocalRecording({ processor }: ProcessorInfo) {
         console.log(`Received message from processor: ${event.data}`);
 
         // 处理来自处理器的消息
-        if (event.data && event.data.type === "encodedResult") {
-          if (event.data.buffer) {
-            // 收到录音完成消息和音频数据
-            const arrayBuffer = event.data.buffer;
+        if (event.data) {
+          if (event.data.type === "encodedResult") {
+            if (event.data.buffer) {
+              // 收到录音完成消息和音频数据
+              const arrayBuffer = event.data.buffer;
 
-            // 根据格式创建 MIME 类型
-            let mimeType = "audio/wav";
-            if (selectedFormat === "mp3") {
-              mimeType = "audio/mp3";
-            } else if (selectedFormat === "ogg") {
-              mimeType = "audio/ogg";
+              // 根据格式创建 MIME 类型
+              let mimeType = "audio/wav";
+              if (selectedFormat === "mp3") {
+                mimeType = "audio/mp3";
+              }
+
+              // 创建 Blob 对象
+              const audioBlob = new Blob([arrayBuffer], { type: mimeType });
+              setRecordedBlob(audioBlob);
+
+              // 创建 URL (会在 useEffect 中自动创建)
+              console.log("Recording completed and audio blob created");
+            } else if (event.data.status === "error") {
+              // 处理错误
+              console.error("Recording error:", event.data.error);
             }
-
-            // 创建 Blob 对象
-            const audioBlob = new Blob([arrayBuffer], { type: mimeType });
-            setRecordedBlob(audioBlob);
-
-            // 创建 URL (会在 useEffect 中自动创建)
-            console.log("Recording completed and audio blob created");
-          } else if (event.data.status === "error") {
-            // 处理错误
-            console.error("Recording error:", event.data.error);
+          } else if (event.data.type === "processing") {
+            drawAudioData(event.data.audioData);
           }
         }
       };
@@ -168,29 +171,46 @@ function LocalRecording({ processor }: ProcessorInfo) {
     }
   };
 
-  const handleUpload = async () => {
+  const handleDownload = async () => {
     if (!recordedBlob) return;
 
-    setIsUploading(true);
     try {
-      const formData = new FormData();
-      formData.append("audio", recordedBlob, `recording.${selectedFormat}`);
+      setIsComposing(true);
+      setComposingProgress(0);
 
-      // 这里添加实际上传逻辑
-      // const response = await fetch('/api/upload', {
-      //   method: 'POST',
-      //   body: formData
-      // });
+      // simulate the progress of composing
+      const progressInterval = setInterval(() => {
+        setComposingProgress((prev) => Math.min(prev + 10, 90));
+      }, 200);
 
-      // if (!response.ok) throw new Error('Upload failed');
+      // create the download link
+      const downloadUrl = URL.createObjectURL(recordedBlob);
+      const downloadLink = document.createElement("a");
+      downloadLink.href = downloadUrl;
 
-      // 上传成功后的处理（可以选择是否清空录音）
-      // setRecordedBlob(null);
-      // setAudioUrl(null);
+      // setup the file name
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      downloadLink.download = `recording-${timestamp}.${selectedFormat}`;
+
+      // simulate the composing progress
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
+      // clear the interval & progress
+      clearInterval(progressInterval);
+      setComposingProgress(100);
+
+      // trigger the download
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+      URL.revokeObjectURL(downloadUrl);
     } catch (error) {
       console.error("Upload failed:", error);
     } finally {
-      setIsUploading(false);
+      setIsComposing(false);
+      setComposingProgress(0);
+      setRecordedBlob(null);
+      setAudioUrl(null);
     }
   };
 
@@ -212,6 +232,40 @@ function LocalRecording({ processor }: ProcessorInfo) {
       });
       setIsPlaying(true);
     }
+  };
+
+  const drawAudioData = (audioData: Float32Array) => {
+    if (!canvasRef.current) return;
+
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const width = canvas.width;
+    const height = canvas.height;
+
+    ctx.clearRect(0, 0, width, height);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "rgb(0, 200, 200)";
+    ctx.beginPath();
+
+    const sliceWidth = width / audioData.length;
+    let x = 0;
+
+    for (let i = 0; i < audioData.length; i++) {
+      const v = audioData[i];
+      const y = (v * 0.5 + 0.5) * height;
+
+      if (i === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+      x += sliceWidth;
+    }
+
+    ctx.lineTo(width, height / 2);
+    ctx.stroke();
   };
 
   // 监听音频播放完成
@@ -310,7 +364,6 @@ function LocalRecording({ processor }: ProcessorInfo) {
           >
             <option value="wav">WAV</option>
             <option value="mp3">MP3</option>
-            <option value="ogg">OGG</option>
           </select>
         </div>
 
@@ -366,23 +419,31 @@ function LocalRecording({ processor }: ProcessorInfo) {
           </button>
 
           <button
-            onClick={handleUpload}
-            disabled={!audioUrl || isRecording || isUploading}
+            onClick={handleDownload}
+            disabled={!audioUrl || isRecording || isComposing}
             className={`flex-1 py-2 px-4 rounded-md flex justify-center items-center space-x-2 ${
-              audioUrl && !isRecording && !isUploading
+              audioUrl && !isRecording && !isComposing
                 ? "bg-green-600 hover:bg-green-700 text-white"
                 : "bg-gray-300 text-gray-500 cursor-not-allowed"
             }`}
           >
-            {isUploading ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span>Uploading...</span>
-              </>
+            {isComposing ? (
+              <div className="w-full">
+                <div className="flex items-center justify-center space-x-2 mb-1">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Composing...</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className="bg-green-500 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${composingProgress}%` }}
+                  />
+                </div>
+              </div>
             ) : (
               <>
-                <Upload className="w-5 h-5" />
-                <span>Upload</span>
+                <Download className="w-5 h-5" />
+                <span>Download</span>
               </>
             )}
           </button>
