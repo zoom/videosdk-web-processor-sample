@@ -37,7 +37,7 @@ function LocalRecording({ processor }: ProcessorInfo) {
         console.log(`Received message from processor: ${event.data}`);
 
         // 处理来自处理器的消息
-        if (event.data && event.data.type === "encodedRecordingData") {
+        if (event.data && event.data.type === "encodedResult") {
           if (event.data.buffer) {
             // 收到录音完成消息和音频数据
             const arrayBuffer = event.data.buffer;
