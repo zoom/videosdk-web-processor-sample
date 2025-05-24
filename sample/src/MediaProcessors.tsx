@@ -77,6 +77,13 @@ const audioProcessors: Processor[] = [
       "Record audio from the local microphone and send it to the server.",
     icon: <Mic className="w-6 h-6" />,
   },
+  {
+    id: "pitch-shift-processor",
+    name: "Pitch Shift Audio Processor",
+    description:
+      "Record audio from the local microphone and send it to the server.",
+    icon: <Mic className="w-6 h-6" />,
+  },
 ];
 
 const sharingProcessors: Processor[] = [
