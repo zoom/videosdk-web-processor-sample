@@ -3,7 +3,6 @@ import ZoomMediaContext from "../../context/media-context";
 import { Mic, Loader2, Upload, Play, Download } from "lucide-react";
 import { useAudio } from "../../hooks/useSelfAudio";
 import { Processor } from "@zoom/videosdk";
-import { set } from "immer/dist/internal";
 
 type ProcessorInfo = {
   processor: Processor;
