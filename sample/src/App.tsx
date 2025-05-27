@@ -391,11 +391,19 @@ function App(props: AppProps) {
     webEndpoint = window?.webEndpoint ?? "zoom.us";
   }
 
-  const [selectedVideoProcessor, selectVideoProcessor, videoProcessorMapRef] =
-    useSelectProcessor("video");
+  const [
+    selectedVideoProcessor,
+    selectVideoProcessor,
+    videoProcessorMapRef,
+    removeVideoProcessor,
+  ] = useSelectProcessor("video");
 
-  const [selectedAudioProcessor, selectAudioProcessor, audioProcessorMapRef] =
-    useSelectProcessor("audio");
+  const [
+    selectedAudioProcessor,
+    selectAudioProcessor,
+    audioProcessorMapRef,
+    removeAudioProcessor,
+  ] = useSelectProcessor("audio");
 
   const mediaContext = useMemo(
     () => ({
@@ -407,6 +415,8 @@ function App(props: AppProps) {
       selectedAudioProcessor,
       selectAudioProcessor,
       audioProcessorMapRef,
+      removeVideoProcessor,
+      removeAudioProcessor,
     }),
     [
       mediaState,
@@ -414,6 +424,8 @@ function App(props: AppProps) {
       selectedAudioProcessor,
       selectVideoProcessor,
       selectAudioProcessor,
+      removeVideoProcessor,
+      removeAudioProcessor,
     ]
   );
   const galleryViewWithoutSAB =

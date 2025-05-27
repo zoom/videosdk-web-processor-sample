@@ -1,5 +1,12 @@
 import { Processor } from "@zoom/videosdk";
-import { useContext, useEffect, useMemo, useState } from "react";
+import {
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  useCallback,
+  useRef,
+} from "react";
 import ZoomMediaContext from "../context/media-context";
 import processorConfig from "../config/processor";
 
@@ -12,9 +19,15 @@ export function useLoadProcessor(id: string, type: "audio" | "video") {
     selectAudioProcessor,
     selectedAudioProcessor,
     audioProcessorMapRef,
+    removeVideoProcessor,
+    removeAudioProcessor,
   } = useContext(ZoomMediaContext);
+
   const [processor, setProcessor] = useState<Processor | undefined>();
   const [processorLoaded, setProcessorLoaded] = useState(false);
+
+  const currentProcessorIdRef = useRef<string>("");
+  const currentMediaStreamRef = useRef<any>(null);
 
   const selectProcessor = useMemo(() => {
     return {
@@ -44,6 +57,9 @@ export function useLoadProcessor(id: string, type: "audio" | "video") {
 
     console.log(`Loading ${type} processor: ${c.id}`);
 
+    currentProcessorIdRef.current = id;
+    currentMediaStreamRef.current = mediaStream;
+
     selectProcessor(
       mediaStream,
       c.id,
@@ -54,6 +70,25 @@ export function useLoadProcessor(id: string, type: "audio" | "video") {
       }
     );
   }, [id, mediaStream]);
+
+  useEffect(() => {
+    return () => {
+      console.log(`unloading processor: ${currentProcessorIdRef.current}`);
+      if (currentMediaStreamRef.current) {
+        if (type === "video") {
+          removeVideoProcessor(
+            currentMediaStreamRef.current,
+            currentProcessorIdRef.current
+          );
+        } else {
+          removeAudioProcessor(
+            currentMediaStreamRef.current,
+            currentProcessorIdRef.current
+          );
+        }
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (processorLoaded) {

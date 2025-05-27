@@ -38,5 +38,22 @@ export function useSelectProcessor(type: "video" | "audio") {
     initCallback(processor.port);
   };
 
-  return [selectedProcessor, selectProcessor, processorMapRef];
+  const removeProcessor = (mediaStream: MediaStream, name: string) => {
+    console.log(`removeProcessor() type: ${type}, id: ${selectedProcessor}`);
+    if (processorRef.current && mediaStream) {
+      mediaStream?.removeProcessor(processorRef.current);
+    }
+
+    // cleanup processor map
+    processorMapRef.current.delete(name);
+
+    // cleanup current processor reference
+    processorRef.current = undefined;
+
+    // cleanup processor map
+    processorMapRef.current.delete(selectedProcessor);
+    setSelectedProcessor("");
+  };
+
+  return [selectedProcessor, selectProcessor, processorMapRef, removeProcessor];
 }

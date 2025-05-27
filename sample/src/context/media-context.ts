@@ -1,6 +1,6 @@
-import React, { createContext, useState } from 'react';
+import React, { createContext, useState } from "react";
 import { Processor } from "@zoom/videosdk";
-import { MediaStream } from '../index-types';
+import { MediaStream } from "../index-types";
 
 interface MediaContext {
   audio: {
@@ -22,6 +22,8 @@ interface MediaContext {
   selectedAudioProcessor: any;
   selectAudioProcessor: any;
   audioProcessorMapRef: any;
+  removeVideoProcessor: (mediaStream: MediaStream, name: string) => void;
+  removeAudioProcessor: (mediaStream: MediaStream, name: string) => void;
 }
 
 export default React.createContext<MediaContext>(null as any);
