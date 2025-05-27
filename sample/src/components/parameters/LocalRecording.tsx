@@ -21,6 +21,8 @@ function LocalRecording({ processor }: ProcessorInfo) {
   const { audioOn, handleToggleAudio } = useAudio();
   const sampleRate = 48000;
   const processorRef = useRef<Processor>();
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
 
   // states for UI
   const [selectedSampleRate, setSelectedSampleRate] = useState(sampleRate);
@@ -50,6 +52,8 @@ function LocalRecording({ processor }: ProcessorInfo) {
               let mimeType = "audio/wav";
               if (selectedFormat === "mp3") {
                 mimeType = "audio/mp3";
+              } else if (selectedFormat === "pcm") {
+                mimeType = "application/octet-stream";
               }
 
               // create the Blob object
@@ -217,23 +221,79 @@ function LocalRecording({ processor }: ProcessorInfo) {
     }
   };
 
-  const handlePreview = () => {
-    if (!audioUrl || !audioRef.current) return;
+  const handlePreview = async () => {
+    if (!audioUrl || !recordedBlob) return;
 
     if (isPlaying) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      setIsPlaying(false);
-    } else {
-      // ensure the correct audio source is loaded
-      if (audioRef.current.src !== audioUrl) {
-        audioRef.current.src = audioUrl;
+      if (sourceNodeRef.current) {
+        sourceNodeRef.current.stop();
+        sourceNodeRef.current.disconnect();
+        sourceNodeRef.current = null;
       }
+      setIsPlaying(false);
+      return;
+    }
 
-      audioRef.current.play().catch((err) => {
-        console.error("Preview playback failed:", err);
-      });
-      setIsPlaying(true);
+    try {
+      if (selectedFormat === "pcm") {
+        if (!audioContextRef.current) {
+          audioContextRef.current = new AudioContext({
+            sampleRate: selectedSampleRate,
+          });
+        }
+
+        // read blob data
+        const arrayBuffer = await recordedBlob.arrayBuffer();
+        const audioData = new Float32Array(arrayBuffer);
+
+        // calculate the sample count of per channel
+        const samplesPerChannel = audioData.length / 2;
+
+        // create the audio buffer
+        const audioBuffer = audioContextRef.current.createBuffer(
+          2, // stereo
+          samplesPerChannel,
+          selectedSampleRate
+        );
+
+        // split the audio data into left and right channels
+        const leftChannel = audioBuffer.getChannelData(0);
+        const rightChannel = audioBuffer.getChannelData(1);
+
+        // interleave the audio data to the channels
+        for (let i = 0; i < samplesPerChannel; i++) {
+          leftChannel[i] = audioData[i * 2]; // left channel
+          rightChannel[i] = audioData[i * 2 + 1]; // right channel
+        }
+
+        // create the source node and connect
+        const sourceNode = audioContextRef.current.createBufferSource();
+        sourceNode.buffer = audioBuffer;
+        sourceNode.connect(audioContextRef.current.destination);
+        sourceNodeRef.current = sourceNode;
+
+        // set the playback end event
+        sourceNode.onended = () => {
+          setIsPlaying(false);
+          sourceNodeRef.current = null;
+        };
+      
+        // start playback
+        sourceNode.start();
+        setIsPlaying(true);
+      } else {
+        // non-pcm formats plays with the audio element
+        if (audioRef.current) {
+          if (audioRef.current.src !== audioUrl) {
+            audioRef.current.src = audioUrl;
+          }
+          await audioRef.current.play();
+          setIsPlaying(true);
+        }
+      }
+    } catch (err) {
+      console.error("Preview playback failed:", err);
+      setIsPlaying(false);
     }
   };
 
@@ -367,6 +427,7 @@ function LocalRecording({ processor }: ProcessorInfo) {
           >
             <option value="wav">WAV</option>
             <option value="mp3">MP3</option>
+            <option value="pcm">PCM</option>
           </select>
         </div>
 
