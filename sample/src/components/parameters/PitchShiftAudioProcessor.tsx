@@ -12,100 +12,76 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
-  const [pitchRatio, setPitchRatio] = useState<number>(1.5);
-  const [formantRatio, setFormantRatio] = useState<number>(1.2);
-  const [dryWet, setDryWet] = useState<number>(0.0);
+  const [pitchRatio, setPitchRatio] = useState(1.5);
+  const [formantRatio, setFormantRatio] = useState(1.2);
+  const [dryWet, setDryWet] = useState(0.0);
 
-  const { audioOn, handleToggleAudio } = useAudio();
+  const { audioOn, handleToggleAudio, isMuted, handleMuteAudio } = useAudio();
   const processorRef = useRef<Processor>();
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const audioBufferQueueRef = useRef<Float32Array[]>([]);
-  const playbackTimerRef = useRef<number | null>(null);
-  const playbackInterval = 150;
-  const maxQueueLength = 50;
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  
+  // unified queue and playback time refs
+  const queueRef = useRef<Float32Array[]>([]);
+  const playTimeRef = useRef(0);
 
   const channels = 2;
   const sampleRate = 48000;
-  const batchSize = 1024;
-  const chunkSeconds = batchSize;
-  let playTime = 0;
-  const queue: Float32Array<any>[] = [];
+  const batchSize = 4096;
+  const chunkSeconds = batchSize / sampleRate;
 
   useEffect(() => {
     processorRef.current = processor;
-    if (processorRef.current) {
-      console.log(`processor loaded: ${processorRef.current.name}`);
-      const messageHandler = (event: MessageEvent) => {
-        if (event.data) {
-          if (event.data.command === "preview") {
-            if (event.data.data) {
-              const audioData = new Float32Array(event.data.data); // received the message of recording completed and audio data
-              queue.push(audioData);
-              scheduleChunks();
-            }
-          }
-        }
-      };
+    if (!processorRef.current) return;
 
-      processorRef.current.port.addEventListener("message", messageHandler);
+    // message handler: push into unified queue and schedule
+    const messageHandler = (event: MessageEvent) => {
+      if (event.data?.command === "preview" && event.data.data) {
+        const audioData = new Float32Array(event.data.data);
+        queueRef.current.push(audioData);
+        scheduleChunks();
+      }
+    };
 
-      return () => {
-        if (processorRef.current?.port) {
-          processorRef.current.port.removeEventListener(
-            "message",
-            messageHandler
-          );
-        }
-      };
-    }
+    const port = processorRef.current.port;
+    port.addEventListener("message", messageHandler);
+    return () => {
+      port.removeEventListener("message", messageHandler);
+    };
   }, [processor]);
 
-  const startRecording = async () => {
-    try {
-      setIsInitializing(true);
-      setIsRecording(true);
+  const startAudio = async () => {
+    setIsInitializing(true);
+    setIsRecording(true);
 
-      // Start Zoom audio
-      if (!audioOn) {
-        handleToggleAudio();
-        startPlaybackTimer();
-      }
-
-      // Ensure AudioContext exists
-      if (!audioContextRef.current) {
-        audioContextRef.current = new AudioContext({ sampleRate });
-        // playTime = audioContextRef.current.currentTime + 0.1;
-      }
-
-      // Clear buffer queue
-      audioBufferQueueRef.current = [];
-    } catch (err) {
-      console.error("Failed to start recording:", err);
-      stopRecording();
-    } finally {
-      setIsInitializing(false);
+    if (!audioOn) {
+      await handleToggleAudio();
     }
+
+    if (isMuted) {
+      await handleMuteAudio();
+    }
+
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new AudioContext({ sampleRate });
+      await audioCtxRef.current.resume();
+      // initial playTime 100ms ahead
+      playTimeRef.current = audioCtxRef.current.currentTime + 0.1;
+    }
+
+    setIsInitializing(false);
   };
 
-  const stopRecording = () => {
+  const stopAudio = async () => {
     setIsRecording(false);
-    if (audioOn) {
-      handleToggleAudio();
-      stopPlaybackTimer();
+
+    if (audioOn && !isMuted) {
+      await handleMuteAudio();
     }
-
-    // Stop playback timer
-    stopPlaybackTimer();
-
-    // Clear buffer queue
-    audioBufferQueueRef.current = [];
-
-    // Close AudioContext
-    if (audioContextRef.current) {
-      audioContextRef.current
-        .close()
-        .catch((err) => console.error("Failed to close AudioContext:", err));
-      audioContextRef.current = null;
+    
+    queueRef.current = [];
+    if (audioCtxRef.current) {
+      audioCtxRef.current.close().catch(console.error);
+      audioCtxRef.current = null;
     }
   };
 
@@ -114,148 +90,45 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
     value: string,
     paramName: "pitchRatio" | "formantRatio" | "dryWet"
   ) => {
-    const floatValue = parseFloat(value);
-    if (!isNaN(floatValue)) {
-      setter(floatValue);
-
-      const newConfig = {
-        pitchRatio: paramName === "pitchRatio" ? floatValue : pitchRatio,
-        formantRatio: paramName === "formantRatio" ? floatValue : formantRatio,
-        dryWet: paramName === "dryWet" ? floatValue : dryWet,
-      };
-
-      if (processor?.port) {
-        processor.port.postMessage({
-          command: "update-pitch-shift-config",
-          config: newConfig,
-        });
-      }
-    }
+    const v = parseFloat(value);
+    if (isNaN(v)) return;
+    setter(v);
+    const config = {
+      pitchRatio: paramName === "pitchRatio" ? v : pitchRatio,
+      formantRatio: paramName === "formantRatio" ? v : formantRatio,
+      dryWet: paramName === "dryWet" ? v : dryWet,
+    };
+    processorRef.current?.port.postMessage({
+      command: "update-pitch-shift-config",
+      config,
+    });
   };
 
-  // Add audio data to queue
-  const queueAudioData = (audioData: Float32Array) => {
-    // Create a copy to avoid reference issues
-    const audioCopy = new Float32Array(audioData);
-
-    // Add data to queue
-    audioBufferQueueRef.current.push(audioCopy);
-
-    // Limit queue length
-    if (audioBufferQueueRef.current.length > maxQueueLength) {
-      audioBufferQueueRef.current.shift(); // Remove oldest data
-    }
-  };
-
-  // Start playback timer
-  const startPlaybackTimer = () => {
-    if (playbackTimerRef.current !== null) return;
-
-    playbackTimerRef.current = window.setInterval(() => {
-      processAudioQueue();
-    }, playbackInterval);
-  };
-
-  // Stop playback timer
-  const stopPlaybackTimer = () => {
-    if (playbackTimerRef.current !== null) {
-      window.clearInterval(playbackTimerRef.current);
-      playbackTimerRef.current = null;
-    }
-  };
-
-  // Process audio queue
-  const processAudioQueue = () => {
-    if (audioBufferQueueRef.current.length === 0) return;
-
-    // Method 1: Play a single buffer from the queue
-    // const audioData = audioBufferQueueRef.current.shift();
-    // if (audioData) playAudioData(audioData);
-
-    // Method 2: Combine multiple small buffers into one large buffer, potentially more efficient
-    const combinedLength = audioBufferQueueRef.current.reduce(
-      (sum, buffer) => sum + buffer.length,
-      0
-    );
-
-    if (combinedLength > 0) {
-      const combinedBuffer = new Float32Array(combinedLength);
-      let offset = 0;
-
-      while (audioBufferQueueRef.current.length > 0) {
-        const buffer = audioBufferQueueRef.current.shift();
-        if (buffer) {
-          combinedBuffer.set(buffer, offset);
-          offset += buffer.length;
-        }
-      }
-
-      playAudioData(combinedBuffer);
-    }
-  };
-
-  // Play audio data
-  const playAudioData = (audioData: Float32Array) => {
-    try {
-      if (!audioContextRef.current) {
-        audioContextRef.current = new AudioContext({ sampleRate });
-      }
-
-      const audioContext = audioContextRef.current;
-
-      // Ensure AudioContext is running
-      if (audioContext.state === "suspended") {
-        audioContext
-          .resume()
-          .catch((err) => console.error("Failed to resume AudioContext:", err));
-      }
-
-      // Create mono buffer
-      const audioBuffer = audioContext.createBuffer(
-        1,
-        audioData.length,
-        sampleRate
-      );
-      audioBuffer.copyToChannel(audioData, 0);
-
-      const source = audioContext.createBufferSource();
-      source.buffer = audioBuffer;
-      source.connect(audioContext.destination);
-      source.start();
-    } catch (error) {
-      console.error("Error playing audio data:", error);
-    }
-  };
-
+  // unified scheduling: one function
   const scheduleChunks = () => {
-    while (queue.length) {
-      const buf = queue.shift();
-      if (buf) {
-        const frameCount = buf.length / channels;
-        const audioBuffer = audioContextRef?.current?.createBuffer(
-          channels,
-          frameCount,
-          sampleRate
-        );
-        if (audioBuffer) {
-          for (let ch = 0; ch < channels; ch++) {
-            const channelData = audioBuffer.getChannelData(ch);
-            for (let i = 0; i < frameCount; i++) {
-              channelData[i] = buf[i * channels + ch];
-            }
-          }
+    const audioCtx = audioCtxRef.current;
+    if (!audioCtx) return;
+    // ensure context running
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume().catch(console.error);
+      playTimeRef.current = audioCtx.currentTime + 0.1;
+    }
 
-          if (audioContextRef?.current) {
-            const src = audioContextRef.current.createBufferSource();
-            if (src) {
-              src.buffer = audioBuffer;
-              src.connect(audioContextRef.current.destination);
-              src.start(playTime);
-              playTime += chunkSeconds;
-            }
-          }
+    while (queueRef.current.length) {
+      const buf = queueRef.current.shift()!;
+      const frameCount = buf.length / channels;
+      const audioBuffer = audioCtx.createBuffer(channels, frameCount, audioCtx.sampleRate);
+      for (let ch = 0; ch < channels; ch++) {
+        const channelData = audioBuffer.getChannelData(ch);
+        for (let i = 0; i < frameCount; i++) {
+          channelData[i] = buf[i * channels + ch];
         }
       }
+      const src = audioCtx.createBufferSource();
+      src.buffer = audioBuffer;
+      src.connect(audioCtx.destination);
+      src.start(playTimeRef.current);
+      playTimeRef.current += chunkSeconds;
     }
   };
 
@@ -275,7 +148,7 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
                   ? "bg-red-500 hover:bg-red-600"
                   : "bg-blue-500 hover:bg-blue-600"
               }`}
-              onClick={isRecording ? stopRecording : startRecording}
+              onClick={isRecording ? stopAudio : startAudio}
               disabled={isInitializing}
             >
               {isInitializing ? (

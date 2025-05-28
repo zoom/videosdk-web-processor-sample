@@ -16,7 +16,7 @@
   "dependencies": {
     "@mediapipe/tasks-audio": "^0.10.22-rc.20250304",
     "@mediapipe/tasks-vision": "^0.10.22-rc.20250304",
-    "@zoom/videosdk": "npm:@zoom/videosdk-internal@1.0.726",
+    "@zoom/videosdk": "npm:@zoom/videosdk-internal@1.0.756",
     "assemblyai": "^4.4.5",
     "classnames": "^2.2.6",
     "concurrently": "^8.2.2",

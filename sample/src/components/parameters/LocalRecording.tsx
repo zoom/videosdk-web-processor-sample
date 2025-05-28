@@ -18,7 +18,7 @@ function LocalRecording({ processor }: ProcessorInfo) {
   const [remainingTime, setRemainingTime] = useState(0);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const { audioOn, handleToggleAudio } = useAudio();
+  const { audioOn, isMuted, handleToggleAudio, handleMuteAudio } = useAudio();
   const sampleRate = 48000;
   const processorRef = useRef<Processor>();
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -37,9 +37,9 @@ function LocalRecording({ processor }: ProcessorInfo) {
     if (processorRef.current) {
       console.log(`processor loaded: ${processorRef.current.name}`);
       processorRef.current.port.onmessage = (event: MessageEvent) => {
-        console.log(
-          `Received message from processor. type: ${event.data.type}`
-        );
+        // console.log(
+        //   `Received message from processor. type: ${event.data.type}`
+        // );
 
         // handle the message from processor
         if (event.data) {
@@ -137,18 +137,19 @@ function LocalRecording({ processor }: ProcessorInfo) {
     }
   }, [audioUrl]);
 
-  const stopRecording = () => {
+  const stopRecording = async () => {
     setIsRecording(false);
     isRecordingRef.current = false;
 
     // Stop Zoom audio
-    if (audioOn) {
-      if (processor && processor.port) {
-        processor.port.postMessage({
-          command: "stop",
-        });
-      }
-      handleToggleAudio();
+    if (audioOn && !isMuted) {
+      await handleMuteAudio();
+    }
+
+    if (processor && processor.port) {
+      processor.port.postMessage({
+        command: "stop",
+      });
     }
   };
 
@@ -163,18 +164,23 @@ function LocalRecording({ processor }: ProcessorInfo) {
 
     // Start Zoom audio
     if (!audioOn) {
-      if (processor && processor.port) {
-        processor.port.postMessage({
-          command: "start",
-          config: {
-            sampleRate: selectedSampleRate,
-            numChannels: 2,
-            audioFormat: selectedFormat,
-            volumeThreshold: volumeThreshold,
-          },
-        });
-      }
-      handleToggleAudio();
+      await handleToggleAudio();
+    }
+
+    if (isMuted) {
+      await handleMuteAudio();
+    }
+
+    if (processor && processor.port) {
+      processor.port.postMessage({
+        command: "start",
+        config: {
+          sampleRate: selectedSampleRate,
+          numChannels: 2,
+          audioFormat: selectedFormat,
+          volumeThreshold: volumeThreshold,
+        },
+      });
     }
   };
 
@@ -277,7 +283,7 @@ function LocalRecording({ processor }: ProcessorInfo) {
           setIsPlaying(false);
           sourceNodeRef.current = null;
         };
-      
+
         // start playback
         sourceNode.start();
         setIsPlaying(true);
