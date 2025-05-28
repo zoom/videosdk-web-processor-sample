@@ -1,5 +1,5 @@
 // @ts-ignore - Import jsrsasign without type definitions
-import { KJUR } from 'jsrsasign';
+import { KJUR } from "jsrsasign";
 
 /**
  * Save data to localStorage
@@ -10,7 +10,7 @@ export function saveToStorage<T>(key: string, value: T): void {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch (error) {
-    console.error('Failed to save data to localStorage:', error);
+    console.error("Failed to save data to localStorage:", error);
   }
 }
 
@@ -26,11 +26,11 @@ export function loadFromStorage<T>(key: string, defaultValue: T): T {
     if (!value) {
       return defaultValue;
     }
-    
+
     const parsedValue = JSON.parse(value) as T;
     return { ...defaultValue, ...parsedValue };
   } catch (error) {
-    console.error('Failed to load data from localStorage:', error);
+    console.error("Failed to load data from localStorage:", error);
     return defaultValue;
   }
 }
@@ -43,7 +43,7 @@ export function clearFromStorage(key: string): void {
   try {
     localStorage.removeItem(key);
   } catch (error) {
-    console.error('Failed to clear data from localStorage:', error);
+    console.error("Failed to clear data from localStorage:", error);
   }
 }
 
@@ -52,22 +52,22 @@ export function generateVideoToken(
   sdkKey: string,
   sdkSecret: string,
   topic: string,
-  sessionKey = '',
-  userIdentity = '',
+  sessionKey = "",
+  userIdentity = "",
   roleType = 1,
-  cloud_recording_option = '',
-  cloud_recording_election = '',
-  telemetry_tracking_id = '',
+  cloud_recording_option = "",
+  cloud_recording_election = "",
+  telemetry_tracking_id = "",
   video_webrtc_mode = 0,
-  audio_webrtc_mode = 0,
+  audio_webrtc_mode = 0
 ) {
-  let signature = '';
+  let signature = "";
   try {
     const iat = Math.round(new Date().getTime() / 1000) - 30;
     const exp = iat + 60 * 60 * 2;
 
     // Header
-    const oHeader = { alg: 'HS256', typ: 'JWT' };
+    const oHeader = { alg: "HS256", typ: "JWT" };
     // Payload
     const oPayload = {
       app_key: sdkKey,
@@ -78,14 +78,14 @@ export function generateVideoToken(
       video_webrtc_mode,
       audio_webrtc_mode,
     };
-    if (cloud_recording_election === '' && cloud_recording_option === '1') {
+    if (cloud_recording_election === "" && cloud_recording_option === "1") {
       Object.assign(oPayload, {
-        cloud_recording_option: 1
+        cloud_recording_option: 1,
       });
     } else {
       Object.assign(oPayload, {
         cloud_recording_option: parseInt(cloud_recording_option, 10),
-        cloud_recording_election: parseInt(cloud_recording_election, 10)
+        cloud_recording_election: parseInt(cloud_recording_election, 10),
       });
     }
     if (sessionKey) {
@@ -101,7 +101,7 @@ export function generateVideoToken(
     // Sign JWT
     const sHeader = JSON.stringify(oHeader);
     const sPayload = JSON.stringify(oPayload);
-    signature = KJUR.jws.JWS.sign('HS256', sHeader, sPayload, sdkSecret);
+    signature = KJUR.jws.JWS.sign("HS256", sHeader, sPayload, sdkSecret);
   } catch (e) {
     console.error(e);
   }
@@ -156,7 +156,7 @@ export function b64EncodeUnicode(str: any) {
   // can be fed into btoa.
   return btoa(
     encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (match, p1) => {
-      return String.fromCharCode(('0x' + p1) as any);
+      return String.fromCharCode(("0x" + p1) as any);
     })
   );
 }
@@ -165,65 +165,68 @@ export function b64DecodeUnicode(str: any) {
   // Going backwards: from bytestream, to percent-encoding, to original string.
   return decodeURIComponent(
     atob(str)
-      .split('')
+      .split("")
       .map((c) => {
-        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        return "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2);
       })
-      .join('')
+      .join("")
   );
 }
 
-export function loadExternalResource(url: string, type: 'script' | 'style') {
+export function loadExternalResource(url: string, type: "script" | "style") {
   return new Promise((resolve, reject) => {
     let element: HTMLScriptElement | HTMLLinkElement | undefined;
-    if (type === 'script') {
-      element = document.createElement('script');
+    if (type === "script") {
+      element = document.createElement("script");
       element.src = url;
       element.async = true;
-      element.type = 'text/javascript';
-    } else if (type === 'style') {
-      element = document.createElement('link');
+      element.type = "text/javascript";
+    } else if (type === "style") {
+      element = document.createElement("link");
       element.href = url;
-      element.rel = 'stylesheet';
+      element.rel = "stylesheet";
     }
     if (element) {
       if ((element as any).readyState) {
         (element as any).onreadystatechange = () => {
-          if ((element as any).readyState === 'loaded' || (element as any).readyState === 'complete') {
+          if (
+            (element as any).readyState === "loaded" ||
+            (element as any).readyState === "complete"
+          ) {
             (element as any).onreadystatechange = null;
-            resolve('');
+            resolve("");
           }
         };
       } else {
         element.onload = () => {
-          resolve('');
+          resolve("");
         };
         element.onerror = () => {
-          reject(new Error(''));
+          reject(new Error(""));
         };
       }
-      if (typeof document.body.append === 'function') {
-        document.getElementsByTagName('head')[0].append(element);
+      if (typeof document.body.append === "function") {
+        document.getElementsByTagName("head")[0].append(element);
       } else {
-        document.getElementsByTagName('head')[0].appendChild(element);
+        document.getElementsByTagName("head")[0].appendChild(element);
       }
     } else {
-      reject(new Error(''));
+      reject(new Error(""));
     }
   });
 }
 
 export function parseJwt(token: string) {
-  let base64Url = token.split('.')[1];
-  let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+  let base64Url = token.split(".")[1];
+  let base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
   let jsonPayload = decodeURIComponent(
     window
       .atob(base64)
-      .split('')
+      .split("")
       .map((c) => {
-        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        return "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2);
       })
-      .join('')
+      .join("")
   );
 
   return JSON.parse(jsonPayload);
@@ -240,4 +243,8 @@ export function loadImageBitmap(src: string) {
       resolve(createImageBitmap(testImage));
     };
   });
+}
+
+export function isSharedArrayBufferSupported() {
+  return typeof SharedArrayBuffer !== "undefined";
 }

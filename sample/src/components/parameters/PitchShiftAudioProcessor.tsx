@@ -2,7 +2,9 @@ import React, { useState, useRef, useContext, useEffect } from "react";
 import ZoomMediaContext from "../../context/media-context";
 import { Mic, Loader2, Upload, Play, Download } from "lucide-react";
 import { useAudio } from "../../hooks/useSelfAudio";
+import { isSharedArrayBufferSupported } from "../../utils/util";
 import { Processor } from "@zoom/videosdk";
+import { RingBuffer } from "../../utils/ringbuffer";
 
 type ProcessorInfo = {
   processor: Processor;
@@ -19,7 +21,9 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
   const { audioOn, handleToggleAudio, isMuted, handleMuteAudio } = useAudio();
   const processorRef = useRef<Processor>();
   const audioCtxRef = useRef<AudioContext | null>(null);
-  
+  const isSabSupportedRef = useRef(isSharedArrayBufferSupported());
+  const ringBufferRef = useRef<RingBuffer | null>(null);
+
   // unified queue and playback time refs
   const queueRef = useRef<Float32Array[]>([]);
   const playTimeRef = useRef(0);
@@ -28,6 +32,8 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
   const sampleRate = 48000;
   const batchSize = 4096;
   const chunkSeconds = batchSize / sampleRate;
+  const capacitySeconds = 10;
+  const frameCapacity = sampleRate * capacitySeconds;
 
   useEffect(() => {
     processorRef.current = processor;
@@ -55,6 +61,24 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
 
     if (!audioOn) {
       await handleToggleAudio();
+
+      if (isSabSupportedRef.current) {
+        if (!ringBufferRef.current) {
+          // create ring buffer
+          ringBufferRef.current = RingBuffer.create(frameCapacity, channels);
+          if (processorRef.current) {
+            const port = processorRef.current.port;
+            port.postMessage({
+              command: "attach-ring-buffer",
+              data: {
+                ringBuffer: ringBufferRef.current.sab,
+                frameCapacity: frameCapacity,
+                channelCount: channels,
+              },
+            });
+          }
+        }
+      }
     }
 
     if (isMuted) {
@@ -77,7 +101,7 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
     if (audioOn && !isMuted) {
       await handleMuteAudio();
     }
-    
+
     queueRef.current = [];
     if (audioCtxRef.current) {
       audioCtxRef.current.close().catch(console.error);
@@ -109,7 +133,7 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
     const audioCtx = audioCtxRef.current;
     if (!audioCtx) return;
     // ensure context running
-    if (audioCtx.state === 'suspended') {
+    if (audioCtx.state === "suspended") {
       audioCtx.resume().catch(console.error);
       playTimeRef.current = audioCtx.currentTime + 0.1;
     }
@@ -117,7 +141,11 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
     while (queueRef.current.length) {
       const buf = queueRef.current.shift()!;
       const frameCount = buf.length / channels;
-      const audioBuffer = audioCtx.createBuffer(channels, frameCount, audioCtx.sampleRate);
+      const audioBuffer = audioCtx.createBuffer(
+        channels,
+        frameCount,
+        audioCtx.sampleRate
+      );
       for (let ch = 0; ch < channels; ch++) {
         const channelData = audioBuffer.getChannelData(ch);
         for (let i = 0; i < frameCount; i++) {
