@@ -14,7 +14,8 @@
     "dependencies": {
         "@breezystack/lamejs": "^1.2.7",
         "@mediapipe/selfie_segmentation": "^0.1.1675465747",
-        "@mediapipe/tasks-vision": "^0.10.19"
+        "@mediapipe/tasks-vision": "^0.10.19",
+        "@zoom/web-media-lib": "/Users/cleversu/Desktop/SourceCode/zoom/zoom-videosdk-web-processor-sample/wmlib"
     },
     "devDependencies": {
         "@babel/core": "7.0.0",

@@ -4,7 +4,7 @@ import { Mic, Loader2, Upload, Play, Download } from "lucide-react";
 import { useAudio } from "../../hooks/useSelfAudio";
 import { isSharedArrayBufferSupported } from "../../utils/util";
 import { Processor } from "@zoom/videosdk";
-import { RingBuffer } from "../../utils/ringbuffer";
+import { RingBuffer } from "@zoom/web-media-lib";
 
 type ProcessorInfo = {
   processor: Processor;
@@ -23,10 +23,13 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const isSabSupportedRef = useRef(isSharedArrayBufferSupported());
   const ringBufferRef = useRef<RingBuffer | null>(null);
+  const modeRef = useRef(0); // 0: non-sab, 1: sab
+  const scheduleTimerRef = useRef(-1);
 
   // unified queue and playback time refs
   const queueRef = useRef<Float32Array[]>([]);
   const playTimeRef = useRef(0);
+  const chunkFrames = 1024;
 
   const channels = 2;
   const sampleRate = 48000;
@@ -50,6 +53,15 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
 
     const port = processorRef.current.port;
     port.addEventListener("message", messageHandler);
+
+    modeRef.current = isSabSupportedRef.current ? 1 : 0;
+    port.postMessage({
+      command: "init-processor",
+      data: {
+        mode: modeRef.current,
+      }
+    });
+
     return () => {
       port.removeEventListener("message", messageHandler);
     };
@@ -71,7 +83,7 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
             port.postMessage({
               command: "attach-ring-buffer",
               data: {
-                ringBuffer: ringBufferRef.current.sab,
+                sab: ringBufferRef.current.sharedArrayBuffer,
                 frameCapacity: frameCapacity,
                 channelCount: channels,
               },
@@ -93,6 +105,20 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
     }
 
     setIsInitializing(false);
+
+    // if using shared array buffer, start scheduling from ring buffer to read audio data
+    if (modeRef.current === 1) {
+      scheduleFromRing();
+    }
+
+    // notify processor unmuted state
+    processorRef.current?.port.postMessage({
+      command: "audio-state-changed",
+      data: {
+        audioOn: audioOn,
+        isMuted: isMuted,
+      }
+    });
   };
 
   const stopAudio = async () => {
@@ -107,6 +133,49 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
       audioCtxRef.current.close().catch(console.error);
       audioCtxRef.current = null;
     }
+
+    if (scheduleTimerRef.current !== -1) {
+      clearInterval(scheduleTimerRef.current);
+      scheduleTimerRef.current = -1;
+    }
+
+    // notify processor unmuted state
+    processorRef.current?.port.postMessage({
+      command: "audio-state-changed",
+      data: {
+        audioOn: audioOn,
+        isMuted: isMuted,
+      }
+    });
+  };
+
+  const scheduleFromRing = () => {
+    if (!ringBufferRef.current || !audioCtxRef.current) return;
+    
+    const data = ringBufferRef.current?.read(chunkFrames);
+    if (!data || data.length === 0) return;
+
+    const frameCount = data.length / channels;
+    const buffer = audioCtxRef.current?.createBuffer(channels, frameCount, sampleRate);
+    if (!buffer) return;
+
+    for (let ch = 0; ch < channels; ch++) {
+      const chArr = buffer.getChannelData(ch);
+      for (let i = 0; i < frameCount; i++) {
+        chArr[i] = data[i * channels + ch];
+      }
+    }
+
+    const src = audioCtxRef.current?.createBufferSource();
+    if (src) {
+      src.buffer = buffer;
+      src.connect(audioCtxRef.current?.destination);
+      src.start(playTimeRef.current);
+      playTimeRef.current += frameCount / sampleRate;
+    }
+    
+    const timerId = setInterval(scheduleFromRing, 10);
+    scheduleTimerRef.current = timerId;
   };
 
   const handleParameterChange = (
@@ -124,7 +193,7 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
     };
     processorRef.current?.port.postMessage({
       command: "update-pitch-shift-config",
-      config,
+      data: config,
     });
   };
 
