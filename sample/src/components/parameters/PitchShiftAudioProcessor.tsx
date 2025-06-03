@@ -39,6 +39,30 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
   const frameCapacity = sampleRate * capacitySeconds;
 
   useEffect(() => {
+    if (audioOn) {
+      console.log("audioOn is true");
+    } else {
+      console.log("audioOn is false");
+    }
+
+    if (isMuted) {
+      console.log("isMuted is true");
+    } else {
+      console.log("isMuted is false");
+    }
+
+    // if (processorRef.current) {
+    //   processorRef.current.port.postMessage({
+    //     command: "audio-state-changed",
+    //     data: {
+    //       audioOn: audioOn,
+    //       isMuted: isMuted,
+    //     },
+    //   });
+    // }
+  }, [audioOn, isMuted]);
+
+  useEffect(() => {
     processorRef.current = processor;
     if (!processorRef.current) return;
 
@@ -59,7 +83,7 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
       command: "init-processor",
       data: {
         mode: modeRef.current,
-      }
+      },
     });
 
     return () => {
@@ -117,7 +141,7 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
       data: {
         audioOn: audioOn,
         isMuted: isMuted,
-      }
+      },
     });
   };
 
@@ -145,18 +169,27 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
       data: {
         audioOn: audioOn,
         isMuted: isMuted,
-      }
+      },
     });
   };
 
   const scheduleFromRing = () => {
+    if (scheduleTimerRef.current == -1) {
+      const timerId = setInterval(scheduleFromRing, 10);
+      scheduleTimerRef.current = timerId;
+    }
+
     if (!ringBufferRef.current || !audioCtxRef.current) return;
-    
+
     const data = ringBufferRef.current?.read(chunkFrames);
     if (!data || data.length === 0) return;
 
     const frameCount = data.length / channels;
-    const buffer = audioCtxRef.current?.createBuffer(channels, frameCount, sampleRate);
+    const buffer = audioCtxRef.current?.createBuffer(
+      channels,
+      frameCount,
+      sampleRate
+    );
     if (!buffer) return;
 
     for (let ch = 0; ch < channels; ch++) {
@@ -173,9 +206,6 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
       src.start(playTimeRef.current);
       playTimeRef.current += frameCount / sampleRate;
     }
-    
-    const timerId = setInterval(scheduleFromRing, 10);
-    scheduleTimerRef.current = timerId;
   };
 
   const handleParameterChange = (

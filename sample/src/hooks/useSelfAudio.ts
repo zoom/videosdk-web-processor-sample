@@ -3,7 +3,7 @@ import { useContext, useEffect, useRef, useState } from "react";
 
 export function useAudio() {
   const [audioOn, setAudioOn] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
   const isSwitching = useRef(false);
   const isAudioMuting = useRef(false);
   const { mediaStream } = useContext(ZoomMediaContext);
