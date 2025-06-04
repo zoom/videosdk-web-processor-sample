@@ -33,23 +33,16 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
 
   const channels = 2;
   const sampleRate = 48000;
-  const batchSize = 4096;
+  const batchSize = 1024;
   const chunkSeconds = batchSize / sampleRate;
-  const capacitySeconds = 10;
+  const capacitySeconds = 5;
   const frameCapacity = sampleRate * capacitySeconds;
+  const intervalMs = (chunkFrames / sampleRate) * 1000;
 
   useEffect(() => {
-    if (audioOn) {
-      console.log("audioOn is true");
-    } else {
-      console.log("audioOn is false");
-    }
-
-    if (isMuted) {
-      console.log("isMuted is true");
-    } else {
-      console.log("isMuted is false");
-    }
+    console.log(
+      `audioOn state changed observed: ${audioOn}, isMuted state change observed: ${isMuted}`
+    );
 
     // if (processorRef.current) {
     //   processorRef.current.port.postMessage({
@@ -175,7 +168,7 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
 
   const scheduleFromRing = () => {
     if (scheduleTimerRef.current == -1) {
-      const timerId = setInterval(scheduleFromRing, 10);
+      const timerId = setInterval(scheduleFromRing, intervalMs);
       scheduleTimerRef.current = timerId;
     }
 
