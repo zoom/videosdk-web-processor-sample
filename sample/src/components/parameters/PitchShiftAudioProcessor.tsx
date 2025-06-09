@@ -16,7 +16,7 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
   const [isInitializing, setIsInitializing] = useState(false);
   const [pitchRatio, setPitchRatio] = useState(1.5);
   const [formantRatio, setFormantRatio] = useState(1.2);
-  const [dryWet, setDryWet] = useState(0.0);
+  const [dryWet, setDryWet] = useState(0.7);
 
   const { audioOn, handleToggleAudio, isMuted, handleMuteAudio } = useAudio();
   const processorRef = useRef<Processor>();
@@ -24,180 +24,287 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
   const isSabSupportedRef = useRef(isSharedArrayBufferSupported());
   const ringBufferRef = useRef<RingBuffer | null>(null);
   const modeRef = useRef(0); // 0: non-sab, 1: sab
-  const scheduleTimerRef = useRef(-1);
+  const isRecordingRef = useRef(false);
 
-  // unified queue and playback time refs
-  const queueRef = useRef<Float32Array[]>([]);
+  // Playback management
   const playTimeRef = useRef(0);
-  const chunkFrames = 1024;
+  const queueRef = useRef<Float32Array[]>([]);
+  const scheduleTimerRef = useRef<number>(-1);
+  const isPlaybackActiveRef = useRef(false);
 
+  // Audio parameters
   const channels = 2;
   const sampleRate = 48000;
-  const batchSize = 1024;
-  const chunkSeconds = batchSize / sampleRate;
-  const capacitySeconds = 5;
+  const capacitySeconds = 10;
   const frameCapacity = sampleRate * capacitySeconds;
-  const intervalMs = (chunkFrames / sampleRate) * 1000;
+  const initialBufferDelayMs = 200; // Small initial delay for smooth start
 
+  // Monitor audioOn changes
   useEffect(() => {
     console.log(
-      `audioOn state changed observed: ${audioOn}, isMuted state change observed: ${isMuted}`
+      `[Main] Audio state changed: audioOn=${audioOn}, isMuted=${isMuted}`
     );
-
-    // if (processorRef.current) {
-    //   processorRef.current.port.postMessage({
-    //     command: "audio-state-changed",
-    //     data: {
-    //       audioOn: audioOn,
-    //       isMuted: isMuted,
-    //     },
-    //   });
-    // }
   }, [audioOn, isMuted]);
 
+  // Initialize processor and setup message handling
   useEffect(() => {
     processorRef.current = processor;
     if (!processorRef.current) return;
 
-    // message handler: push into unified queue and schedule
+    console.log("[Main] Setting up processor");
+
+    // Setup message handler for non-SAB mode
     const messageHandler = (event: MessageEvent) => {
       if (event.data?.command === "preview" && event.data.data) {
         const audioData = new Float32Array(event.data.data);
         queueRef.current.push(audioData);
-        scheduleChunks();
+
+        // Start playback if not already active
+        if (!isPlaybackActiveRef.current) {
+          startPlayback();
+        }
       }
     };
 
     const port = processorRef.current.port;
     port.addEventListener("message", messageHandler);
 
+    // Determine mode and initialize processor
     modeRef.current = isSabSupportedRef.current ? 1 : 0;
+    console.log(`[Main] Initializing processor with mode: ${modeRef.current}`);
+
     port.postMessage({
       command: "init-processor",
       data: {
         mode: modeRef.current,
+        sampleRate: sampleRate,
+      },
+    });
+
+    // Send initial configuration
+    port.postMessage({
+      command: "update-pitch-shift-config",
+      data: {
+        pitchRatio,
+        formantRatio,
+        dryWet,
       },
     });
 
     return () => {
       port.removeEventListener("message", messageHandler);
     };
-  }, [processor]);
+  }, [processor, pitchRatio, formantRatio, dryWet]);
 
-  const startAudio = async () => {
-    setIsInitializing(true);
-    setIsRecording(true);
+  const startPlayback = () => {
+    if (isPlaybackActiveRef.current || !audioCtxRef.current) return;
 
-    if (!audioOn) {
-      await handleToggleAudio();
+    console.log("[Main] Starting playback");
+    isPlaybackActiveRef.current = true;
 
-      if (isSabSupportedRef.current) {
-        if (!ringBufferRef.current) {
-          // create ring buffer
-          ringBufferRef.current = RingBuffer.create(frameCapacity, channels);
-          if (processorRef.current) {
-            const port = processorRef.current.port;
-            port.postMessage({
-              command: "attach-ring-buffer",
-              data: {
-                sab: ringBufferRef.current.sharedArrayBuffer,
-                frameCapacity: frameCapacity,
-                channelCount: channels,
-              },
-            });
-          }
-        }
+    // Set initial playback time
+    playTimeRef.current =
+      audioCtxRef.current.currentTime + initialBufferDelayMs / 1000;
+
+    if (modeRef.current === 1) {
+      // SAB mode: schedule from RingBuffer
+      scheduleFromRingBuffer();
+    } else {
+      // Non-SAB mode: schedule from queue
+      scheduleFromQueue();
+    }
+  };
+
+  const stopPlayback = () => {
+    console.log("[Main] Stopping playback");
+    isPlaybackActiveRef.current = false;
+    queueRef.current = [];
+
+    if (scheduleTimerRef.current !== -1) {
+      clearTimeout(scheduleTimerRef.current);
+      scheduleTimerRef.current = -1;
+    }
+  };
+
+  const scheduleFromRingBuffer = () => {
+    if (
+      !isPlaybackActiveRef.current ||
+      !audioCtxRef.current ||
+      !ringBufferRef.current
+    ) {
+      return;
+    }
+
+    const chunkFrames = 2048; // Larger chunks for stability
+    const availableFrames = ringBufferRef.current.availableRead();
+
+    if (availableFrames >= chunkFrames) {
+      const data = ringBufferRef.current.read(chunkFrames);
+      if (data && data.length > 0) {
+        playAudioChunk(data);
       }
     }
 
-    if (isMuted) {
-      await handleMuteAudio();
-    }
-
-    if (!audioCtxRef.current) {
-      audioCtxRef.current = new AudioContext({ sampleRate });
-      await audioCtxRef.current.resume();
-      // initial playTime 100ms ahead
-      playTimeRef.current = audioCtxRef.current.currentTime + 0.1;
-    }
-
-    setIsInitializing(false);
-
-    // if using shared array buffer, start scheduling from ring buffer to read audio data
-    if (modeRef.current === 1) {
-      scheduleFromRing();
-    }
-
-    // notify processor unmuted state
-    processorRef.current?.port.postMessage({
-      command: "audio-state-changed",
-      data: {
-        audioOn: audioOn,
-        isMuted: isMuted,
-      },
-    });
+    // Schedule next check
+    const nextCheckMs = (chunkFrames / sampleRate) * 500; // Check twice as often as chunk duration
+    scheduleTimerRef.current = window.setTimeout(
+      scheduleFromRingBuffer,
+      nextCheckMs
+    );
   };
 
-  const stopAudio = async () => {
-    setIsRecording(false);
-
-    if (audioOn && !isMuted) {
-      await handleMuteAudio();
+  const scheduleFromQueue = () => {
+    if (!isPlaybackActiveRef.current || !audioCtxRef.current) {
+      return;
     }
 
-    queueRef.current = [];
-    if (audioCtxRef.current) {
-      audioCtxRef.current.close().catch(console.error);
-      audioCtxRef.current = null;
+    // Process all available chunks in queue
+    while (queueRef.current.length > 0 && isPlaybackActiveRef.current) {
+      const chunk = queueRef.current.shift();
+      if (chunk) {
+        playAudioChunk(chunk);
+      }
     }
 
-    if (scheduleTimerRef.current !== -1) {
-      clearInterval(scheduleTimerRef.current);
-      scheduleTimerRef.current = -1;
-    }
-
-    // notify processor unmuted state
-    processorRef.current?.port.postMessage({
-      command: "audio-state-changed",
-      data: {
-        audioOn: audioOn,
-        isMuted: isMuted,
-      },
-    });
+    // Schedule next check
+    scheduleTimerRef.current = window.setTimeout(scheduleFromQueue, 10);
   };
 
-  const scheduleFromRing = () => {
-    if (scheduleTimerRef.current == -1) {
-      const timerId = setInterval(scheduleFromRing, intervalMs);
-      scheduleTimerRef.current = timerId;
-    }
+  const playAudioChunk = (audioData: Float32Array) => {
+    if (!audioCtxRef.current || !isPlaybackActiveRef.current) return;
 
-    if (!ringBufferRef.current || !audioCtxRef.current) return;
-
-    const data = ringBufferRef.current?.read(chunkFrames);
-    if (!data || data.length === 0) return;
-
-    const frameCount = data.length / channels;
-    const buffer = audioCtxRef.current?.createBuffer(
+    const frameCount = audioData.length / channels;
+    const buffer = audioCtxRef.current.createBuffer(
       channels,
       frameCount,
       sampleRate
     );
-    if (!buffer) return;
 
+    // De-interleave data into channels
     for (let ch = 0; ch < channels; ch++) {
-      const chArr = buffer.getChannelData(ch);
+      const channelData = buffer.getChannelData(ch);
       for (let i = 0; i < frameCount; i++) {
-        chArr[i] = data[i * channels + ch];
+        channelData[i] = audioData[i * channels + ch];
       }
     }
 
-    const src = audioCtxRef.current?.createBufferSource();
-    if (src) {
-      src.buffer = buffer;
-      src.connect(audioCtxRef.current?.destination);
-      src.start(playTimeRef.current);
-      playTimeRef.current += frameCount / sampleRate;
+    const sourceNode = audioCtxRef.current.createBufferSource();
+    sourceNode.buffer = buffer;
+    sourceNode.connect(audioCtxRef.current.destination);
+
+    // Ensure playTime doesn't fall behind
+    const currentTime = audioCtxRef.current.currentTime;
+    if (playTimeRef.current < currentTime) {
+      playTimeRef.current = currentTime + 0.01; // Small buffer
+    }
+
+    sourceNode.start(playTimeRef.current);
+    playTimeRef.current += frameCount / sampleRate;
+  };
+
+  const startAudio = async () => {
+    setIsRecording(true);
+    isRecordingRef.current = true;
+    setIsInitializing(true);
+
+    try {
+      // Start audio if not already on
+      if (!audioOn) {
+        await handleToggleAudio();
+      }
+
+      // Unmute if muted
+      if (isMuted) {
+        await handleMuteAudio();
+      }
+
+      // Create audio context
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new AudioContext({ sampleRate });
+        await audioCtxRef.current.resume();
+      }
+
+      // Setup RingBuffer for SAB mode
+      if (modeRef.current === 1 && !ringBufferRef.current) {
+        ringBufferRef.current = RingBuffer.create(frameCapacity, channels);
+
+        if (processorRef.current) {
+          const port = processorRef.current.port;
+          port.postMessage({
+            command: "attach-ring-buffer",
+            data: {
+              sab: ringBufferRef.current.sharedArrayBuffer,
+              frameCapacity: frameCapacity,
+              channelCount: channels,
+            },
+          });
+        }
+      }
+
+      // Reset playback state
+      stopPlayback();
+
+      setIsInitializing(false);
+      console.log("[Main] Audio started successfully");
+
+      // Notify processor of audio state
+      if (processorRef.current) {
+        processorRef.current.port.postMessage({
+          command: "audio-state-changed",
+          data: {
+            audioOn: true,
+            isMuted: false,
+          },
+        });
+      }
+
+      // For SAB mode, start playback immediately
+      if (modeRef.current === 1) {
+        setTimeout(() => {
+          if (isRecordingRef.current) {
+            startPlayback();
+          }
+        }, 300);
+      }
+    } catch (error) {
+      console.error("[Main] Error starting audio:", error);
+      setIsInitializing(false);
+      setIsRecording(false);
+      isRecordingRef.current = false;
+    }
+  };
+
+  const stopAudio = async () => {
+    setIsRecording(false);
+    isRecordingRef.current = false;
+    stopPlayback();
+
+    try {
+      // Notify processor to stop processing
+      if (processorRef.current) {
+        processorRef.current.port.postMessage({
+          command: "audio-state-changed",
+          data: {
+            audioOn: false,
+            isMuted: true,
+          },
+        });
+      }
+
+      // Mute audio if not already muted
+      if (audioOn && !isMuted) {
+        await handleMuteAudio();
+      }
+
+      // Close audio context
+      if (audioCtxRef.current) {
+        audioCtxRef.current.close().catch(console.error);
+        audioCtxRef.current = null;
+      }
+
+      console.log("[Main] Audio stopped successfully");
+    } catch (error) {
+      console.error("[Main] Error stopping audio:", error);
     }
   };
 
@@ -208,47 +315,21 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
   ) => {
     const v = parseFloat(value);
     if (isNaN(v)) return;
+
     setter(v);
-    const config = {
-      pitchRatio: paramName === "pitchRatio" ? v : pitchRatio,
-      formantRatio: paramName === "formantRatio" ? v : formantRatio,
-      dryWet: paramName === "dryWet" ? v : dryWet,
-    };
-    processorRef.current?.port.postMessage({
-      command: "update-pitch-shift-config",
-      data: config,
-    });
-  };
 
-  // unified scheduling: one function
-  const scheduleChunks = () => {
-    const audioCtx = audioCtxRef.current;
-    if (!audioCtx) return;
-    // ensure context running
-    if (audioCtx.state === "suspended") {
-      audioCtx.resume().catch(console.error);
-      playTimeRef.current = audioCtx.currentTime + 0.1;
-    }
+    // Update processor configuration
+    if (processorRef.current) {
+      const config = {
+        pitchRatio: paramName === "pitchRatio" ? v : pitchRatio,
+        formantRatio: paramName === "formantRatio" ? v : formantRatio,
+        dryWet: paramName === "dryWet" ? v : dryWet,
+      };
 
-    while (queueRef.current.length) {
-      const buf = queueRef.current.shift()!;
-      const frameCount = buf.length / channels;
-      const audioBuffer = audioCtx.createBuffer(
-        channels,
-        frameCount,
-        audioCtx.sampleRate
-      );
-      for (let ch = 0; ch < channels; ch++) {
-        const channelData = audioBuffer.getChannelData(ch);
-        for (let i = 0; i < frameCount; i++) {
-          channelData[i] = buf[i * channels + ch];
-        }
-      }
-      const src = audioCtx.createBufferSource();
-      src.buffer = audioBuffer;
-      src.connect(audioCtx.destination);
-      src.start(playTimeRef.current);
-      playTimeRef.current += chunkSeconds;
+      processorRef.current.port.postMessage({
+        command: "update-pitch-shift-config",
+        data: config,
+      });
     }
   };
 
@@ -287,6 +368,28 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
           ref={canvasRef}
           className="w-full h-48 bg-gray-900 rounded-lg"
         />
+        <div className="mt-4 text-sm text-gray-600">
+          <p>
+            <strong>Mode:</strong>{" "}
+            {modeRef.current === 1
+              ? "SharedArrayBuffer (Low Latency)"
+              : "PostMessage (Compatible)"}
+          </p>
+          <p>
+            <strong>Status:</strong>{" "}
+            {isRecording
+              ? isPlaybackActiveRef.current
+                ? "Recording & Playing"
+                : "Recording"
+              : "Idle"}
+          </p>
+          {modeRef.current === 1 && ringBufferRef.current && (
+            <p>
+              <strong>Buffer:</strong> {ringBufferRef.current.availableRead()}{" "}
+              frames available
+            </p>
+          )}
+        </div>
       </div>
       <div className="bg-white rounded-2xl shadow-lg p-6">
         <h2 className="text-2xl font-bold text-gray-800 mb-6">
@@ -303,8 +406,8 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
                 <input
                   type="number"
                   step="0.1"
-                  min="0.0"
-                  max="2.0"
+                  min="0.25"
+                  max="4.0"
                   value={pitchRatio}
                   onChange={(e) =>
                     handleParameterChange(
@@ -320,11 +423,11 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
               </div>
             </div>
             <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-500">0.0</span>
+              <span className="text-sm text-gray-500">0.25</span>
               <input
                 type="range"
-                min="0.0"
-                max="2.0"
+                min="0.25"
+                max="4.0"
                 step="0.1"
                 value={pitchRatio}
                 onChange={(e) =>
@@ -338,7 +441,7 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
                   dark:bg-gray-700 accent-blue-500 hover:accent-blue-600
                   transition-all duration-200"
               />
-              <span className="text-sm text-gray-500">2.0</span>
+              <span className="text-sm text-gray-500">4.0</span>
             </div>
           </div>
 
@@ -352,8 +455,8 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
                 <input
                   type="number"
                   step="0.1"
-                  min="0.0"
-                  max="2.0"
+                  min="0.25"
+                  max="4.0"
                   value={formantRatio}
                   onChange={(e) =>
                     handleParameterChange(
@@ -369,11 +472,11 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
               </div>
             </div>
             <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-500">0.0</span>
+              <span className="text-sm text-gray-500">0.25</span>
               <input
                 type="range"
-                min="0.0"
-                max="2.0"
+                min="0.25"
+                max="4.0"
                 step="0.1"
                 value={formantRatio}
                 onChange={(e) =>
@@ -387,7 +490,7 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
                   dark:bg-gray-700 accent-blue-500 hover:accent-blue-600
                   transition-all duration-200"
               />
-              <span className="text-sm text-gray-500">2.0</span>
+              <span className="text-sm text-gray-500">4.0</span>
             </div>
           </div>
 
@@ -436,8 +539,12 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
         <div className="mt-4 pt-4 border-t border-gray-200">
           <p className="text-sm text-gray-500">
             Adjust the configuration to modify the voice pitch, formant and
-            dry/wet. Higher pitch ratio values make the voice higher, lower
+            dry/wet mix. Higher pitch ratio values make the voice higher, lower
             values make it deeper.
+          </p>
+          <p className="text-sm text-gray-500 mt-2">
+            <strong>Enhanced Version:</strong> Improved audio quality with
+            advanced pitch shifting algorithm and intelligent buffering.
           </p>
         </div>
       </div>
