@@ -29,18 +29,16 @@ function LocalRecording({ processor }: ProcessorInfo) {
   const [selectedFormat, setSelectedFormat] = useState("wav");
   const [maxDuration, setMaxDuration] = useState(300);
   const [volumeThreshold, setVolumeThreshold] = useState(0.1);
+  const [uploadUrl, setUploadUrl] = useState("");
   const [isComposing, setIsComposing] = useState(false);
   const [composingProgress, setComposingProgress] = useState(0);
+  const [isAutoUploading, setIsAutoUploading] = useState(false);
 
   useEffect(() => {
     processorRef.current = processor;
     if (processorRef.current) {
       console.log(`processor loaded: ${processorRef.current.name}`);
       processorRef.current.port.onmessage = (event: MessageEvent) => {
-        // console.log(
-        //   `Received message from processor. type: ${event.data.type}`
-        // );
-
         // handle the message from processor
         if (event.data) {
           if (event.data.type === "encoding") {
@@ -62,6 +60,15 @@ function LocalRecording({ processor }: ProcessorInfo) {
 
               // create the URL (will be created in the useEffect)
               console.log("Recording completed and audio blob created");
+              
+              // Auto-upload if URL is provided
+              if (uploadUrl.trim()) {
+                console.log("Auto-uploading recorded file...");
+                // Use setTimeout to ensure state updates are processed
+                setTimeout(() => {
+                  handleAutoUpload(audioBlob);
+                }, 100);
+              }
             } else if (event.data.status === "error") {
               // handle the error
               console.error("Recording error:", event.data.error);
@@ -74,6 +81,12 @@ function LocalRecording({ processor }: ProcessorInfo) {
       };
     }
   }, [processor, selectedFormat]);
+
+  useEffect(() => {
+    console.log(
+      `[LocalRecording] audioOn state changed observed: ${audioOn}, isMuted state change observed: ${isMuted}`
+    );
+  }, [audioOn, isMuted]);
 
   // countdown effect
   useEffect(() => {
@@ -197,13 +210,12 @@ function LocalRecording({ processor }: ProcessorInfo) {
       }, 200);
 
       // create the download link
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const filename = `recording-${timestamp}.${selectedFormat}`;
       const downloadUrl = URL.createObjectURL(recordedBlob);
       const downloadLink = document.createElement("a");
       downloadLink.href = downloadUrl;
-
-      // setup the file name
-      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-      downloadLink.download = `recording-${timestamp}.${selectedFormat}`;
+      downloadLink.download = filename;
 
       // simulate the composing progress
       await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -218,7 +230,99 @@ function LocalRecording({ processor }: ProcessorInfo) {
       document.body.removeChild(downloadLink);
       URL.revokeObjectURL(downloadUrl);
     } catch (error) {
+      console.error("Download failed:", error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      alert(`Download failed: ${errorMessage}`);
+    } finally {
+      setIsComposing(false);
+      setComposingProgress(0);
+      setRecordedBlob(null);
+      setAudioUrl(null);
+    }
+  };
+
+  const handleAutoUpload = async (audioBlob: Blob) => {
+    if (!audioBlob || !uploadUrl.trim()) return;
+
+    try {
+      setIsAutoUploading(true);
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const filename = `recording-${timestamp}.${selectedFormat}`;
+
+      // Upload to server
+      const formData = new FormData();
+      formData.append('file', audioBlob, filename);
+      formData.append('sampleRate', selectedSampleRate.toString());
+      formData.append('format', selectedFormat);
+      formData.append('timestamp', timestamp);
+
+      console.log('Starting auto-upload to:', uploadUrl);
+      const response = await fetch(uploadUrl, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Auto-upload failed: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log('Auto-upload completed successfully:', result);
+      
+      // Show success notification
+      alert('Recording uploaded successfully!');
+    } catch (error) {
+      console.error("Auto-upload failed:", error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      alert(`Auto-upload failed: ${errorMessage}`);
+    } finally {
+      setIsAutoUploading(false);
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!recordedBlob || !uploadUrl.trim()) return;
+
+    try {
+      setIsComposing(true);
+      setComposingProgress(0);
+
+      // simulate the progress of composing
+      const progressInterval = setInterval(() => {
+        setComposingProgress((prev) => Math.min(prev + 10, 90));
+      }, 200);
+
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const filename = `recording-${timestamp}.${selectedFormat}`;
+
+      // Upload to server
+      const formData = new FormData();
+      formData.append('file', recordedBlob, filename);
+      formData.append('sampleRate', selectedSampleRate.toString());
+      formData.append('format', selectedFormat);
+      formData.append('timestamp', timestamp);
+
+      const response = await fetch(uploadUrl, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.statusText}`);
+      }
+
+      console.log('File uploaded successfully');
+
+      // simulate the composing progress
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
+      // clear the interval & progress
+      clearInterval(progressInterval);
+      setComposingProgress(100);
+    } catch (error) {
       console.error("Upload failed:", error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      alert(`Upload failed: ${errorMessage}`);
     } finally {
       setIsComposing(false);
       setComposingProgress(0);
@@ -397,6 +501,16 @@ function LocalRecording({ processor }: ProcessorInfo) {
           ref={canvasRef}
           className="w-full h-48 bg-gray-900 rounded-lg"
         />
+        
+        {/* Auto-upload status indicator */}
+        {isAutoUploading && (
+          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center space-x-3">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+              <span className="text-blue-700 font-medium">Auto-uploading recording...</span>
+            </div>
+          </div>
+        )}
         {/* hidden audio element for preview */}
         <audio ref={audioRef} style={{ display: "none" }} />
       </div>
@@ -473,8 +587,26 @@ function LocalRecording({ processor }: ProcessorInfo) {
           </div>
         </div>
 
-        {/* preview and upload buttons */}
-        <div className="flex space-x-3 mt-6">
+        {/* upload URL */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Upload URL
+          </label>
+          <input
+            type="url"
+            value={uploadUrl}
+            onChange={(e) => setUploadUrl(e.target.value)}
+            placeholder="http://localhost:8001/upload"
+            className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+            disabled={isRecording}
+          />
+          <div className="text-sm text-gray-500 mt-1">
+            If provided, recording will be automatically uploaded after completion
+          </div>
+        </div>
+
+        {/* preview and action buttons */}
+        <div className="flex space-x-2 mt-6">
           <button
             onClick={handlePreview}
             disabled={!audioUrl || isRecording}
@@ -501,7 +633,7 @@ function LocalRecording({ processor }: ProcessorInfo) {
               <div className="w-full">
                 <div className="flex items-center justify-center space-x-2 mb-1">
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Composing...</span>
+                  <span>Processing...</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div
@@ -516,6 +648,19 @@ function LocalRecording({ processor }: ProcessorInfo) {
                 <span>Download</span>
               </>
             )}
+          </button>
+
+          <button
+            onClick={handleUpload}
+            disabled={!audioUrl || !uploadUrl.trim() || isRecording || isComposing}
+            className={`flex-1 py-2 px-4 rounded-md flex justify-center items-center space-x-2 ${
+              audioUrl && uploadUrl.trim() && !isRecording && !isComposing
+                ? "bg-blue-600 hover:bg-blue-700 text-white"
+                : "bg-gray-300 text-gray-500 cursor-not-allowed"
+            }`}
+          >
+            <Upload className="w-5 h-5" />
+            <span>Upload</span>
           </button>
         </div>
       </div>
