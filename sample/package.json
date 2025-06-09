@@ -8,7 +8,7 @@
     "postinstall": "cp -r node_modules/@zoom/videosdk/dist/lib public",
     "dev": "concurrently \"npm run dev:client\" \"npm run dev:server\"",
     "dev:client": "vite",
-    "dev:server": "cd server && node server.js",
+    "dev:server": "cd ../server && node server.js",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"

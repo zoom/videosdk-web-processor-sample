@@ -40,8 +40,9 @@
             const offset = circumference - (progress / 100) * circumference;
             
             return (
-                <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
+                <div className="w-full h-full flex items-center justify-center">
                     <svg className="transform -rotate-90" width={size} height={size}>
+                        {/* Background circle */}
                         <circle
                             cx={size / 2}
                             cy={size / 2}
@@ -51,6 +52,7 @@
                             fill="transparent"
                             className="text-gray-300"
                         />
+                        {/* Progress circle */}
                         <circle
                             cx={size / 2}
                             cy={size / 2}
@@ -62,6 +64,9 @@
                             strokeDasharray={circumference}
                             strokeDashoffset={offset}
                             strokeLinecap="round"
+                            style={{
+                                transition: 'stroke-dashoffset 0.1s ease-in-out'
+                            }}
                         />
                     </svg>
                 </div>
@@ -200,11 +205,13 @@
                 const updateProgress = () => {
                     if (audio.duration) {
                         const progress = (audio.currentTime / audio.duration) * 100;
+                        console.log(`[Audio Progress] ${filename}: ${progress.toFixed(1)}%`);
                         setPlayProgress(progress);
                     }
                 };
 
                 const handleAudioEnd = () => {
+                    console.log(`[Audio Ended] ${filename}`);
                     setPlayingFile(null);
                     setCurrentAudio(null);
                     setPlayProgress(0);
@@ -222,6 +229,8 @@
             };
 
             const playPCMFile = async (filename) => {
+                console.log(`[PCM Start] Playing PCM file: "${filename}"`);
+                
                 // Get file metadata
                 const fileInfo = files.find(f => f?.filename === filename);
                 const sampleRate = fileInfo?.sampleRate || 48000;
@@ -264,18 +273,23 @@
                 // Progress tracking for PCM
                 const duration = audioBuffer.duration;
                 let startTime = audioContext.currentTime;
+                let isPlaying = true; // Local flag to control progress updates
+                
+                console.log(`[PCM Setup] duration: ${duration.toFixed(3)}s, startTime: ${startTime.toFixed(3)}s`);
                 
                 const updatePCMProgress = () => {
                     const elapsed = audioContext.currentTime - startTime;
                     const progress = Math.min((elapsed / duration) * 100, 100);
                     setPlayProgress(progress);
                     
-                    if (progress < 100 && playingFile === filename) {
+                    if (progress < 100 && isPlaying) {
                         requestAnimationFrame(updatePCMProgress);
                     }
                 };
 
                 const handlePCMEnd = () => {
+                    console.log(`[PCM Ended] ${filename}`);
+                    isPlaying = false; // Stop the progress updates
                     setPlayingFile(null);
                     setCurrentAudio(null);
                     setPlayProgress(0);
@@ -285,9 +299,12 @@
                 
                 // Start playback
                 sourceNode.start();
+                console.log(`[PCM State] Setting playingFile to: "${filename}"`);
                 setPlayingFile(filename);
                 setCurrentAudio({ 
                     pause: () => {
+                        console.log(`[PCM Manual Stop] ${filename}`);
+                        isPlaying = false; // Stop the progress updates
                         sourceNode.stop();
                         handlePCMEnd();
                     },
@@ -295,6 +312,7 @@
                 });
 
                 // Start progress tracking
+                console.log(`[PCM Progress] Starting progress tracking...`);
                 requestAnimationFrame(updatePCMProgress);
             };
 
@@ -498,22 +516,26 @@
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <div className="flex items-center space-x-2">
                                                             {/* Play/Stop Button */}
-                                                            <div className="relative">
+                                                            <div className="relative flex items-center justify-center w-6 h-6">
                                                                 {playingFile === file.filename ? (
                                                                     <button
                                                                         onClick={stopFile}
-                                                                        className="relative text-blue-600 hover:text-blue-800 transition-colors"
+                                                                        className="relative w-6 h-6 flex items-center justify-center text-blue-600 hover:text-blue-800 transition-colors"
                                                                         title="Stop playback"
                                                                     >
-                                                                        <div className="absolute inset-0">
-                                                                            <ProgressCircle progress={playProgress} size={20} />
+                                                                        {/* Progress Circle Background */}
+                                                                        <div className="absolute inset-0 z-0">
+                                                                            <ProgressCircle progress={playProgress} size={24} />
                                                                         </div>
-                                                                        <Icons.Stop />
+                                                                        {/* Stop Icon Foreground */}
+                                                                        <div className="relative z-10">
+                                                                            <Icons.Stop />
+                                                                        </div>
                                                                     </button>
                                                                 ) : (
                                                                     <button
                                                                         onClick={() => playFile(file.filename)}
-                                                                        className="text-green-600 hover:text-green-800 transition-colors"
+                                                                        className="w-6 h-6 flex items-center justify-center text-green-600 hover:text-green-800 transition-colors"
                                                                         title="Play file"
                                                                     >
                                                                         <Icons.Play />
@@ -522,13 +544,15 @@
                                                             </div>
                                                             
                                                             {/* Delete Button */}
-                                                            <button
-                                                                onClick={() => deleteFile(file.filename)}
-                                                                className="text-red-600 hover:text-red-900 transition-colors"
-                                                                title="Delete file"
-                                                            >
-                                                                <Icons.Trash2 />
-                                                            </button>
+                                                            <div className="w-6 h-6 flex items-center justify-center">
+                                                                <button
+                                                                    onClick={() => deleteFile(file.filename)}
+                                                                    className="w-6 h-6 flex items-center justify-center text-red-600 hover:text-red-900 transition-colors"
+                                                                    title="Delete file"
+                                                                >
+                                                                    <Icons.Trash2 />
+                                                                </button>
+                                                            </div>
                                                         </div>
                                                     </td>
                                                 </tr>
