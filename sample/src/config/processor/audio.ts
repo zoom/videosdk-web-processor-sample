@@ -107,7 +107,7 @@ function AudioProcessor() {
   },
   "pitch-shift-processor": {
     id: "pitch-shift-processor",
-    url: window.origin + "/pitch-shift-processor.js",
+    url: window.origin + "/pitch-shift-audio-processor.js",
     options: {},
     render: PitchShiftAudioProcessor,
     name: "Pitch Shift Audio Processor",

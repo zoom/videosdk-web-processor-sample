@@ -136,12 +136,12 @@ declare global {
    * Registers a processor with the given name.
    *
    * @param {string} name - The name of the processor.
-   * @param {typeof VideoProcessor} processor - The processor to register.
+   * @param {typeof VideoProcessor | typeof AudioProcessor} processor - The processor to register.
    * @return {void}
    */
   function registerProcessor(
     name: string,
-    processor: typeof VideoProcessor
+    processor: typeof VideoProcessor | typeof AudioProcessor
   ): void;
   /**
    * A base class for video processors.
@@ -198,5 +198,51 @@ declare global {
       input: VideoFrame,
       output: OffscreenCanvas
     ): boolean | Promise<boolean>;
+  }
+
+  /**
+   * A base class for video processors.
+   */
+  class AudioProcessor {
+    /**
+     * Constructs a new VideoProcessor.
+     *
+     * @param {MessagePort} port - The message port.
+     * @param {any} [options] - Optional options.
+     */
+    constructor(port: MessagePort, options?: any);
+
+    /**
+     * The message port to synchronize messages with the main thread.
+     */
+    port: MessagePort;
+
+    /**
+     * Optional options parameter passed when adding the processor.
+     */
+    options?: any;
+
+    /**
+     * The lifecycle function, called when the processor is initialized.
+     *
+     * @return {void}
+     */
+    onInit(): void;
+
+    /**
+     * The lifecycle function, called when the processor is uninitialized.
+     *
+     * @return {void}
+     */
+    onUninit(): void;
+
+    /**
+     * Processes the audio frame.
+     *
+     * @param {Array<Array<Float32Array>>} inputs - The input audio frames.
+     * @param {Array<Array<Float32Array>>} outputs - The output audio frames.
+     * @return {boolean | Promise<boolean>} A boolean or a promise that resolves to a boolean.
+     */
+    process(inputs: Array<Array<Float32Array>>, outputs: Array<Array<Float32Array>>): boolean | Promise<boolean>;
   }
 }

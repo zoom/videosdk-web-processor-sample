@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Mic, Loader2 } from "lucide-react";
+import { Mic, Loader2, Volume2, VolumeX } from "lucide-react";
 import { useAudio } from "../../hooks/useSelfAudio";
+import { PitchShiftAudioManager } from "./pitch-shift-main-thread";
 import { Processor } from "@zoom/videosdk";
 
 type ProcessorInfo = {
@@ -11,47 +12,59 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
-  const [pitchRatio, setPitchRatio] = useState(1.5);
-  const [formantRatio, setFormantRatio] = useState(1.2);
-  const [dryWet, setDryWet] = useState(0.7);
+  const [pitchRatio, setPitchRatio] = useState(1.0); // 默认原声
+  const [formantRatio, setFormantRatio] = useState(0);
+  const [dryWet, setDryWet] = useState(0.0); // 默认完全干声（原声）
 
   const { audioOn, handleToggleAudio, isMuted, handleMuteAudio } = useAudio();
 
-  // Direct audio graph references
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const micSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
-  const workletNodeRef = useRef<AudioWorkletNode | null>(null);
-  const mediaStreamRef = useRef<MediaStream | null>(null);
+  // 播放管理器
+  const pitchShiftManagerRef = useRef<PitchShiftAudioManager | null>(null);
+  const processorRef = useRef<Processor>();
 
-  // Audio parameters
-  const sampleRate = 48000;
+  // 播放状态
+  const [queueStatus, setQueueStatus] = useState({ queueLength: 0, totalSamples: 0 });
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  // 监听处理器消息
+  useEffect(() => {
+    processorRef.current = processor;
+    if (processorRef.current) {
+      console.log(`[PitchShift] Processor loaded: ${processorRef.current.name}`);
+      
+      // 如果播放管理器已初始化，立即连接
+      if (pitchShiftManagerRef.current) {
+        pitchShiftManagerRef.current.connectToProcessorPort(processorRef.current.port);
+      }
+    }
+  }, [processor]);
 
   // Monitor audioOn changes
   useEffect(() => {
     console.log(
-      `[Main] Audio state changed: audioOn=${audioOn}, isMuted=${isMuted}`
+      `[PitchShift] Audio state changed: audioOn=${audioOn}, isMuted=${isMuted}`
     );
   }, [audioOn, isMuted]);
 
-  const updateProcessorConfig = (config: {
-    pitchRatio?: number;
-    formantRatio?: number;
-    dryWet?: number;
-  }) => {
-    if (workletNodeRef.current) {
-      workletNodeRef.current.port.postMessage({
-        command: "update-config",
-        data: config,
-      });
-      console.log("[Main] Config sent to processor:", config);
-    }
-  };
+  // 状态监控
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (pitchShiftManagerRef.current) {
+        const status = pitchShiftManagerRef.current.getQueueStatus();
+        const playing = pitchShiftManagerRef.current.isPlaybackActive();
+        setQueueStatus(status);
+        setIsPlaying(playing);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const startAudio = async () => {
     setIsInitializing(true);
 
     try {
-      console.log("[Main] Starting direct audio graph processing...");
+      console.log("[PitchShift] Starting pitch shift processing...");
 
       // Start audio if not already on
       if (!audioOn) {
@@ -63,63 +76,45 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
         await handleMuteAudio();
       }
 
-      // Create audio context
-      if (!audioCtxRef.current) {
-        audioCtxRef.current = new AudioContext({ sampleRate });
-        await audioCtxRef.current.resume();
-        console.log("[Main] AudioContext created and resumed");
+      // Initialize PitchShiftAudioManager (只负责播放)
+      if (!pitchShiftManagerRef.current) {
+        pitchShiftManagerRef.current = new PitchShiftAudioManager();
+        await pitchShiftManagerRef.current.initialize(48000);
+        console.log("[PitchShift] PitchShiftAudioManager initialized");
+        
+        // 连接到处理器端口（如果处理器已存在）
+        if (processorRef.current && processorRef.current.port) {
+          pitchShiftManagerRef.current.connectToProcessorPort(processorRef.current.port);
+        }
       }
 
-      // Get microphone stream
-      if (!mediaStreamRef.current) {
-        console.log("[Main] Requesting microphone access...");
-        mediaStreamRef.current = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            sampleRate: sampleRate,
-            channelCount: 2,
-            autoGainControl: false,
-            echoCancellation: false,
-            noiseSuppression: false,
-          },
+      // 启动处理器处理
+      if (processorRef.current && processorRef.current.port) {
+        // 发送启动命令给处理器
+        processorRef.current.port.postMessage({
+          command: 'start-transmission'
         });
-        console.log("[Main] Microphone access granted");
+        
+        // 发送初始配置
+        processorRef.current.port.postMessage({
+          command: 'update-pitch-shift-config',
+          data: {
+            pitchRatio: pitchRatio,
+            formantRatio: formantRatio,
+            dryWet: dryWet,
+          }
+        });
       }
 
-      // Load AudioWorklet processor
-      console.log("[Main] Loading AudioWorklet processor...");
-      await audioCtxRef.current.audioWorklet.addModule(
-        "/lib/processors/audio/pitch-shift-processor.js"
-      );
-
-      // Create worklet node
-      workletNodeRef.current = new AudioWorkletNode(
-        audioCtxRef.current,
-        "pitch-shift-processor"
-      );
-      console.log("[Main] AudioWorkletNode created");
-
-      // Create microphone source
-      micSourceRef.current = audioCtxRef.current.createMediaStreamSource(
-        mediaStreamRef.current
-      );
-      console.log("[Main] MediaStreamSource created");
-
-      // Connect the audio graph: microphone -> worklet -> speakers
-      micSourceRef.current.connect(workletNodeRef.current);
-      workletNodeRef.current.connect(audioCtxRef.current.destination);
-      console.log(
-        "[Main] Audio graph connected: Microphone → PitchShiftWorklet → Speakers"
-      );
-
-      // Send initial configuration to processor
-      updateProcessorConfig({ pitchRatio, formantRatio, dryWet });
+      // Start pitch shift playback
+      pitchShiftManagerRef.current.startPitchShift();
 
       setIsRecording(true);
       setIsInitializing(false);
 
-      console.log("[Main] ✅ Direct audio processing started successfully");
+      console.log("[PitchShift] ✅ Pitch shift processing started successfully");
     } catch (error) {
-      console.error("[Main] ❌ Error starting audio:", error);
+      console.error("[PitchShift] ❌ Error starting audio:", error);
       setIsInitializing(false);
       setIsRecording(false);
 
@@ -127,39 +122,24 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
       await stopAudio();
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      alert(`Failed to start audio processing: ${errorMessage}`);
+      alert(`Failed to start pitch shift processing: ${errorMessage}`);
     }
   };
 
   const stopAudio = async () => {
-    console.log("[Main] Stopping direct audio processing...");
+    console.log("[PitchShift] Stopping pitch shift processing...");
 
     try {
-      // Disconnect audio graph
-      if (micSourceRef.current) {
-        micSourceRef.current.disconnect();
-        micSourceRef.current = null;
-        console.log("[Main] Microphone source disconnected");
+      // Stop pitch shift processing
+      if (pitchShiftManagerRef.current) {
+        pitchShiftManagerRef.current.stopPitchShift();
       }
 
-      if (workletNodeRef.current) {
-        workletNodeRef.current.disconnect();
-        workletNodeRef.current = null;
-        console.log("[Main] AudioWorklet node disconnected");
-      }
-
-      // Stop media stream
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach((track) => track.stop());
-        mediaStreamRef.current = null;
-        console.log("[Main] Media stream stopped");
-      }
-
-      // Close audio context
-      if (audioCtxRef.current) {
-        await audioCtxRef.current.close();
-        audioCtxRef.current = null;
-        console.log("[Main] AudioContext closed");
+      // 停止处理器
+      if (processorRef.current && processorRef.current.port) {
+        processorRef.current.port.postMessage({
+          command: 'stop-transmission'
+        });
       }
 
       // Mute audio if not already muted
@@ -168,33 +148,54 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
       }
 
       setIsRecording(false);
-      console.log("[Main] ✅ Direct audio processing stopped successfully");
+      setIsPlaying(false);
+      setQueueStatus({ queueLength: 0, totalSamples: 0 });
+      console.log("[PitchShift] ✅ Pitch shift processing stopped successfully");
     } catch (error) {
-      console.error("[Main] ❌ Error stopping audio:", error);
+      console.error("[PitchShift] ❌ Error stopping audio:", error);
       setIsRecording(false);
     }
   };
 
-  const handleParameterChange = (
-    setter: React.Dispatch<React.SetStateAction<number>>,
-    value: string,
-    paramName: "pitchRatio" | "formantRatio" | "dryWet"
-  ) => {
-    const v = parseFloat(value);
-    if (isNaN(v)) return;
-
-    setter(v);
-
-    // Update processor configuration in real-time
-    const config = { [paramName]: v };
-    updateProcessorConfig(config);
+  const updatePitchShiftConfig = () => {
+    if (processorRef.current && processorRef.current.port && isRecording) {
+      processorRef.current.port.postMessage({
+        command: 'update-pitch-shift-config',
+        data: {
+          pitchRatio,
+          formantRatio,
+          dryWet
+        }
+      });
+      console.log(`[PitchShift] Updated config: pitch=${pitchRatio}, formant=${formantRatio}, dryWet=${dryWet}`);
+    }
   };
+
+  const startPreview = () => {
+    if (pitchShiftManagerRef.current) {
+      pitchShiftManagerRef.current.startPreview();
+    }
+  };
+
+  const stopPreview = () => {
+    if (pitchShiftManagerRef.current) {
+      pitchShiftManagerRef.current.stopPreview();
+    }
+  };
+
+  // Update parameters in real-time
+  useEffect(() => {
+    updatePitchShiftConfig();
+  }, [pitchRatio, formantRatio, dryWet]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (isRecording) {
         stopAudio();
+      }
+      if (pitchShiftManagerRef.current) {
+        pitchShiftManagerRef.current.cleanup();
       }
     };
   }, []);
@@ -204,7 +205,7 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
       <div className="lg:col-span-2 bg-white rounded-2xl shadow-lg p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-2xl font-bold text-gray-800">
-            🎵 Direct Audio Graph Pitch Shifter
+            🎵 Pitch Shift Audio Processor
           </h2>
           <div className="flex space-x-2">
             <button
@@ -228,30 +229,66 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
                 />
               )}
             </button>
+            
+            {/* 预览播放按钮 */}
+            <button
+              className={`p-2 rounded-lg transition-colors ${
+                isPlaying 
+                  ? "bg-orange-500 hover:bg-orange-600" 
+                  : "bg-green-500 hover:bg-green-600"
+              }`}
+              onClick={isPlaying ? stopPreview : startPreview}
+              disabled={!isRecording}
+              title={isPlaying ? "Stop Preview" : "Start Preview"}
+            >
+              {isPlaying ? (
+                <VolumeX className="w-5 h-5 text-white" />
+              ) : (
+                <Volume2 className="w-5 h-5 text-white" />
+              )}
+            </button>
           </div>
         </div>
+
         <canvas
           ref={canvasRef}
-          className="w-full h-48 bg-gray-900 rounded-lg"
+          className="w-full h-48 bg-gray-900 rounded-lg mb-4"
         />
+
+        {/* 状态信息 */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <div className="bg-gray-50 p-3 rounded-lg">
+            <p className="font-semibold text-gray-700">🔄 Processing Status</p>
+            <p className="text-gray-600">
+              {isRecording ? "🎤 Live Processing" : "⏹️ Idle"}
+            </p>
+          </div>
+          
+          <div className="bg-gray-50 p-3 rounded-lg">
+            <p className="font-semibold text-gray-700">🔊 Playback Status</p>
+            <p className="text-gray-600">
+              {isPlaying ? "▶️ Playing" : "⏸️ Stopped"}
+            </p>
+          </div>
+          
+          <div className="bg-gray-50 p-3 rounded-lg">
+            <p className="font-semibold text-gray-700">📊 Buffer Queue</p>
+            <p className="text-gray-600">
+              {queueStatus.queueLength} bufs, {queueStatus.totalSamples} samples
+            </p>
+          </div>
+        </div>
+
         <div className="mt-4 text-sm text-gray-600">
           <p>
-            <strong>🔄 Processing Mode:</strong> Direct Audio Graph (Zero Buffer
-            Transfer)
+            <strong>🔗 Signal Path:</strong> Framework Processor → PlaybackManager → Speakers
           </p>
           <p>
-            <strong>📊 Status:</strong>{" "}
-            {isRecording ? "🎤 Live Processing" : "⏹️ Idle"}
-          </p>
-          <p>
-            <strong>🔗 Signal Path:</strong> Microphone → AudioWorklet →
-            Speakers
-          </p>
-          <p>
-            <strong>⚡ Latency:</strong> Ultra-low (native Web Audio timing)
+            <strong>⚡ Features:</strong> Framework integration, real-time processing, smooth playback, buffer management
           </p>
         </div>
       </div>
+
       <div className="bg-white rounded-2xl shadow-lg p-6">
         <h2 className="text-2xl font-bold text-gray-800 mb-6">
           🎛️ Real-time Controls
@@ -270,13 +307,7 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
                   min="0.25"
                   max="4.0"
                   value={pitchRatio}
-                  onChange={(e) =>
-                    handleParameterChange(
-                      setPitchRatio,
-                      e.target.value,
-                      "pitchRatio"
-                    )
-                  }
+                  onChange={(e) => setPitchRatio(parseFloat(e.target.value) || 1.0)}
                   className="w-20 px-2 py-1 text-right rounded-md border border-gray-300 
                     focus:ring-2 focus:ring-blue-500 focus:border-transparent
                     transition-all duration-200"
@@ -291,19 +322,16 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
                 max="4.0"
                 step="0.1"
                 value={pitchRatio}
-                onChange={(e) =>
-                  handleParameterChange(
-                    setPitchRatio,
-                    e.target.value,
-                    "pitchRatio"
-                  )
-                }
+                onChange={(e) => setPitchRatio(parseFloat(e.target.value))}
                 className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer
                   dark:bg-gray-700 accent-blue-500 hover:accent-blue-600
                   transition-all duration-200"
               />
               <span className="text-sm text-gray-500">4.0</span>
             </div>
+            <p className="text-xs text-gray-500 mt-1">
+              1.0 = Original pitch, &gt;1.0 = Higher pitch, &lt;1.0 = Lower pitch
+            </p>
           </div>
 
           {/* Formant Ratio Control */}
@@ -316,16 +344,10 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
                 <input
                   type="number"
                   step="0.1"
-                  min="0.25"
-                  max="4.0"
+                  min="0"
+                  max="2.0"
                   value={formantRatio}
-                  onChange={(e) =>
-                    handleParameterChange(
-                      setFormantRatio,
-                      e.target.value,
-                      "formantRatio"
-                    )
-                  }
+                  onChange={(e) => setFormantRatio(parseFloat(e.target.value) || 0)}
                   className="w-20 px-2 py-1 text-right rounded-md border border-gray-300 
                     focus:ring-2 focus:ring-blue-500 focus:border-transparent
                     transition-all duration-200"
@@ -333,26 +355,23 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
               </div>
             </div>
             <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-500">0.25</span>
+              <span className="text-sm text-gray-500">0</span>
               <input
                 type="range"
-                min="0.25"
-                max="4.0"
+                min="0"
+                max="2.0"
                 step="0.1"
                 value={formantRatio}
-                onChange={(e) =>
-                  handleParameterChange(
-                    setFormantRatio,
-                    e.target.value,
-                    "formantRatio"
-                  )
-                }
+                onChange={(e) => setFormantRatio(parseFloat(e.target.value))}
                 className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer
-                  dark:bg-gray-700 accent-blue-500 hover:accent-blue-600
+                  dark:bg-gray-700 accent-green-500 hover:accent-green-600
                   transition-all duration-200"
               />
-              <span className="text-sm text-gray-500">4.0</span>
+              <span className="text-sm text-gray-500">2.0</span>
             </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Controls vocal character preservation (0 = disabled)
+            </p>
           </div>
 
           {/* Dry/Wet Control */}
@@ -368,9 +387,7 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
                   min="0.0"
                   max="1.0"
                   value={dryWet}
-                  onChange={(e) =>
-                    handleParameterChange(setDryWet, e.target.value, "dryWet")
-                  }
+                  onChange={(e) => setDryWet(parseFloat(e.target.value) || 0)}
                   className="w-20 px-2 py-1 text-right rounded-md border border-gray-300 
                     focus:ring-2 focus:ring-blue-500 focus:border-transparent
                     transition-all duration-200"
@@ -385,26 +402,40 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
                 max="1.0"
                 step="0.1"
                 value={dryWet}
-                onChange={(e) =>
-                  handleParameterChange(setDryWet, e.target.value, "dryWet")
-                }
+                onChange={(e) => setDryWet(parseFloat(e.target.value))}
                 className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer
-                  dark:bg-gray-700 accent-blue-500 hover:accent-blue-600
+                  dark:bg-gray-700 accent-purple-500 hover:accent-purple-600
                   transition-all duration-200"
               />
               <span className="text-sm text-gray-500">1.0</span>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              0.0 = Original only, 1.0 = Processed only
+            </p>
+          </div>
+        </div>
+
+        {/* 性能信息 */}
+        <div className="mt-6 pt-4 border-t border-gray-200">
+          <h3 className="text-sm font-semibold text-gray-700 mb-2">🚀 Performance Info</h3>
+          <div className="grid grid-cols-2 gap-4 text-xs text-gray-600">
+            <div>
+              <p><strong>Processor:</strong> {processorRef.current?.name || 'Not loaded'}</p>
+              <p><strong>Queue Length:</strong> {queueStatus.queueLength} buffers</p>
+            </div>
+            <div>
+              <p><strong>Processing:</strong> {isRecording ? 'Active' : 'Inactive'}</p>
+              <p><strong>Playback:</strong> {isPlaying ? 'Active' : 'Inactive'}</p>
             </div>
           </div>
         </div>
 
         <div className="mt-4 pt-4 border-t border-gray-200">
           <p className="text-sm text-gray-500">
-            🎯 <strong>Direct Audio Graph:</strong> All processing happens in
-            the Web Audio pipeline without data transfer between threads.
+            🎯 <strong>Framework Integration:</strong> Uses provided processor instance for seamless audio processing.
           </p>
           <p className="text-sm text-gray-500 mt-2">
-            ✨ <strong>Benefits:</strong> Zero-latency processing, smooth audio
-            continuity, instant parameter changes, no buffer discontinuities.
+            ✨ <strong>Benefits:</strong> Zero latency, framework optimized, real-time parameter updates, professional quality.
           </p>
         </div>
       </div>
