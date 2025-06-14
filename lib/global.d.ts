@@ -205,7 +205,7 @@ declare global {
    */
   class AudioProcessor {
     /**
-     * Constructs a new VideoProcessor.
+     * Constructs a new AudioProcessor.
      *
      * @param {MessagePort} port - The message port.
      * @param {any} [options] - Optional options.

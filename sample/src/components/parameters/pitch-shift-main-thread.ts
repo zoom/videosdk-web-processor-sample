@@ -12,21 +12,16 @@ export class PitchShiftAudioManager {
   private audioDataQueue: Float32Array[] = [];
   private isPlaying: boolean = false;
   private sampleRate: number = 48000;
-  private maxQueueSize: number = 25; // 合理的队列上限，控制延迟
+  private maxQueueSize: number = 50; // 最大缓冲队列大小
   
-  // 播放调度
+  // 播放调度 - 低延迟优化
   private isBuffering: boolean = true;
-  private minBufferSize: number = 2048; // 减小最小缓冲大小以减少延迟
+  private minBufferSize: number = 1024; // 进一步减小缓冲大小，超低延迟
   private playbackScheduler: number | null = null;
-  private nextPlayTime: number = 0; // 用于无缝播放调度
   
   // 音频质量控制
   private lastValidSample: number = 0;
   private fadeInOut: boolean = false; // 禁用淡入淡出，避免实时流的噪音
-  
-  // 自适应延迟控制
-  private targetQueueLength: number = 3; // 目标队列长度
-  private lastPitchRatio: number = 1.0;
   
   constructor() {}
 
@@ -37,10 +32,10 @@ export class PitchShiftAudioManager {
     try {
       this.sampleRate = sampleRate;
       
-      // 创建独立的播放上下文
+      // 创建低延迟播放上下文
       this.playbackContext = new AudioContext({
         sampleRate: this.sampleRate,
-        latencyHint: 'playback'
+        latencyHint: 'interactive' // 使用最低延迟模式
       });
       
       console.log('[PitchShift] Playback manager initialized');
@@ -69,14 +64,8 @@ export class PitchShiftAudioManager {
    */
   private handleProcessorMessage(data: any): void {
     if (data.command === 'preview') {
-      // 更新pitch ratio信息
-      if (data.pitchRatio !== undefined) {
-        this.lastPitchRatio = data.pitchRatio;
-        // 根据pitch ratio调整目标队列长度
-        this.updateTargetQueueLength(data.pitchRatio);
-      }
-      
       // 处理预览播放命令
+      console.log('[PitchShift] Received preview command with audio data');
       this.enqueueAudioData(data.audioData, data.sampleRate, data.timestamp);
     } else if (data.type === 'processed-audio-data') {
       // 兼容旧的消息格式
@@ -106,30 +95,14 @@ export class PitchShiftAudioManager {
   }
 
   /**
-   * 根据pitch ratio更新目标队列长度
-   */
-  private updateTargetQueueLength(pitchRatio: number): void {
-    // 高pitch ratio需要更少的缓冲以减少延迟
-    if (pitchRatio >= 2.0) {
-      this.targetQueueLength = 2;
-    } else if (pitchRatio >= 1.5) {
-      this.targetQueueLength = 3;
-    } else if (pitchRatio <= 0.5) {
-      this.targetQueueLength = 6; // 低pitch ratio需要更多缓冲
-    } else {
-      this.targetQueueLength = 4;
-    }
-  }
-
-  /**
    * 将音频数据加入队列
    */
   private enqueueAudioData(audioData: Float32Array, sampleRate: number, timestamp: number): void {
     try {
-      // 检查队列大小，如果超过上限则丢弃最旧的数据以控制延迟
+      // 检查队列大小，防止内存溢出
       if (this.audioDataQueue.length >= this.maxQueueSize) {
-        console.warn(`[PitchShift] Audio queue is full (size: ${this.audioDataQueue.length}). Dropping oldest buffer to reduce latency.`);
-        this.audioDataQueue.shift(); 
+        console.warn('[PitchShift] Audio queue overflow, dropping oldest data');
+        this.audioDataQueue.shift(); // 移除最旧的数据
       }
       
       // 验证和修复音频数据
@@ -192,7 +165,6 @@ export class PitchShiftAudioManager {
     try {
       this.isPlaying = true;
       this.isBuffering = false;
-      this.nextPlayTime = this.playbackContext.currentTime; // 初始化播放时间
       
       console.log('[PitchShift] Starting audio playback');
       this.scheduleNextBuffer();
@@ -236,10 +208,9 @@ export class PitchShiftAudioManager {
         }
       };
 
-      // 使用精确的调度时间来无缝播放
-      const playTime = Math.max(this.playbackContext.currentTime, this.nextPlayTime);
+      // 立即播放，最小延迟
+      const playTime = this.playbackContext.currentTime; // 去除额外延迟
       source.start(playTime);
-      this.nextPlayTime = playTime + buffer.duration; // 更新下一个播放时间
 
       this.sourceNode = source;
     } catch (error) {
@@ -256,8 +227,24 @@ export class PitchShiftAudioManager {
     if (this.audioDataQueue.length === 0) {
       return null;
     }
-    // 一次只处理一个缓冲区，确保稳定性
-    return this.audioDataQueue.shift() || null;
+
+    // 减少合并数量以避免延迟和质量问题
+    const maxCombine = Math.min(1, this.audioDataQueue.length); // 不合并，直接播放单个缓冲区
+    const combinedLength = this.audioDataQueue.slice(0, maxCombine)
+      .reduce((sum, data) => sum + data.length, 0);
+
+    const combinedData = new Float32Array(combinedLength);
+    let offset = 0;
+
+    for (let i = 0; i < maxCombine; i++) {
+      const data = this.audioDataQueue.shift();
+      if (data) {
+        combinedData.set(data, offset);
+        offset += data.length;
+      }
+    }
+
+    return combinedData;
   }
 
   /**
