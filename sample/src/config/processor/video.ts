@@ -245,6 +245,34 @@ const videoConfig: Record<string, ProcessorConfig> = {
       example: "",
     },
     isInDevelopment: true,
+  },
+  "demo-editor": {
+    id: "demo-editor",
+    url: baseUrl + "/demo-editor.js", // placeholder URL
+    options: {},
+    render: () => null, // no special parameters needed
+    name: "Markdown Editor Demo",
+    description:
+      "Demonstration of the online markdown editing functionality. Try the 'Edit Documentation' feature!",
+    features: [{ icon: Video, text: "documentation tool" }],
+    platforms: [
+      { icon: Globe, text: "Web" },
+    ],
+    implementation: {
+      usage: `
+          // This is a demo of the markdown editor
+          // Click 'Edit Documentation' to try it out!
+          console.log('Editor demo ready');
+        `,
+      example: `
+          // Example of using the markdown editor
+          const editor = new MarkdownEditor({
+            content: '# Hello World',
+            onSave: (content) => console.log('Saved:', content)
+          });
+        `,
+    },
+    isInDevelopment: false,
   }
 };
 

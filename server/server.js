@@ -7,6 +7,12 @@ import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 
+// Import the docs routes
+// Note: For ES modules, we need to use createRequire or convert docs.js to ES modules
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const docsRouter = require('./routes/docs.js');
+
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -47,6 +53,9 @@ let uploadStats = {
 
 // Serve static admin UI files
 app.use('/admin', express.static(path.join(__dirname, 'admin-ui')));
+
+// Markdown docs API routes
+app.use('/api/docs', docsRouter);
 
 // API Routes
 app.get("/token", async (req, res) => {
