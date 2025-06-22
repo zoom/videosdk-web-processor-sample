@@ -8,10 +8,7 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 
 // Import the docs routes
-// Note: For ES modules, we need to use createRequire or convert docs.js to ES modules
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
-const docsRouter = require('./routes/docs.js');
+import docsRouter from './routes/docs.js';
 
 dotenv.config();
 

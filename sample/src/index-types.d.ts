@@ -28,6 +28,7 @@ export type ProcessorConfig = {
   name: string;
   description: string;
   features: { icon: React.ComponentType<any>; text: string }[];
+  platforms?: { icon: React.ComponentType<any>; text: string }[];
   implementation: {
     setup?: string;
     usage?: string;

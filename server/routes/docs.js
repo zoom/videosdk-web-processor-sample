@@ -1,6 +1,11 @@
-const express = require('express');
-const fs = require('fs').promises;
-const path = require('path');
+import express from 'express';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const router = express.Router();
 
 // Create server storage directory for modified documents
@@ -9,7 +14,7 @@ const SERVER_DOCS_DIR = path.join(__dirname, '../storage/docs');
 // Ensure server storage directory exists
 const ensureServerStorageDir = async () => {
   try {
-    await fs.mkdir(SERVER_DOCS_DIR, { recursive: true });
+    await fs.promises.mkdir(SERVER_DOCS_DIR, { recursive: true });
   } catch (error) {
     console.error('Failed to create server storage directory:', error);
   }
@@ -63,7 +68,7 @@ router.post('/save', validateSaveRequest, async (req, res) => {
     
     // Ensure directory exists
     const dirPath = path.dirname(serverFilePath);
-    await fs.mkdir(dirPath, { recursive: true });
+    await fs.promises.mkdir(dirPath, { recursive: true });
     
     // Save metadata along with content
     const documentData = {
@@ -76,11 +81,11 @@ router.post('/save', validateSaveRequest, async (req, res) => {
     };
     
     // Write to server storage
-    await fs.writeFile(serverFilePath, content, 'utf8');
+    await fs.promises.writeFile(serverFilePath, content, 'utf8');
     
     // Also save metadata
     const metadataPath = serverFilePath.replace('.md', '.meta.json');
-    await fs.writeFile(metadataPath, JSON.stringify(documentData, null, 2), 'utf8');
+    await fs.promises.writeFile(metadataPath, JSON.stringify(documentData, null, 2), 'utf8');
     
     res.json({
       success: true,
@@ -108,7 +113,7 @@ const checkOriginalFileExists = async (processorType, processorId) => {
       processorType,
       `${processorId}.md`
     );
-    await fs.access(originalPath);
+    await fs.promises.access(originalPath);
     return true;
   } catch {
     return false;
@@ -134,13 +139,13 @@ router.get('/load/:type/:id', async (req, res) => {
     const metadataPath = serverFilePath.replace('.md', '.meta.json');
     
     try {
-      const content = await fs.readFile(serverFilePath, 'utf8');
-      const stats = await fs.stat(serverFilePath);
+      const content = await fs.promises.readFile(serverFilePath, 'utf8');
+      const stats = await fs.promises.stat(serverFilePath);
       
       // Try to load metadata
       let metadata = {};
       try {
-        const metadataContent = await fs.readFile(metadataPath, 'utf8');
+        const metadataContent = await fs.promises.readFile(metadataPath, 'utf8');
         metadata = JSON.parse(metadataContent);
       } catch {
         // Metadata doesn't exist, create basic info
@@ -172,8 +177,8 @@ router.get('/load/:type/:id', async (req, res) => {
     );
     
     try {
-      const content = await fs.readFile(originalFilePath, 'utf8');
-      const stats = await fs.stat(originalFilePath);
+      const content = await fs.promises.readFile(originalFilePath, 'utf8');
+      const stats = await fs.promises.stat(originalFilePath);
       
       res.json({
         success: true,
@@ -213,12 +218,12 @@ router.get('/list', async (req, res) => {
       const typePath = path.join(originalDocsPath, type);
       
       try {
-        const typeFiles = await fs.readdir(typePath);
+        const typeFiles = await fs.promises.readdir(typePath);
         
         for (const file of typeFiles) {
           if (file.endsWith('.md')) {
             const filePath = path.join(typePath, file);
-            const stats = await fs.stat(filePath);
+            const stats = await fs.promises.stat(filePath);
             const processorId = file.replace('.md', '');
             
             // Check if there's a modified version on server
@@ -227,7 +232,7 @@ router.get('/list', async (req, res) => {
             let modifiedLastModified = null;
             
             try {
-              const serverStats = await fs.stat(serverFilePath);
+              const serverStats = await fs.promises.stat(serverFilePath);
               hasModifiedVersion = true;
               modifiedLastModified = serverStats.mtime.toISOString();
             } catch {
@@ -257,7 +262,7 @@ router.get('/list', async (req, res) => {
         const serverTypePath = path.join(SERVER_DOCS_DIR, type);
         
         try {
-          const serverFiles = await fs.readdir(serverTypePath);
+          const serverFiles = await fs.promises.readdir(serverTypePath);
           
           for (const file of serverFiles) {
             if (file.endsWith('.md')) {
@@ -270,7 +275,7 @@ router.get('/list', async (req, res) => {
               
               if (!existsInList) {
                 const filePath = path.join(serverTypePath, file);
-                const stats = await fs.stat(filePath);
+                const stats = await fs.promises.stat(filePath);
                 
                 files.push({
                   processorType: type,
@@ -329,7 +334,7 @@ router.post('/reset/:type/:id', async (req, res) => {
     const backupPath = serverFilePath.replace('.md', `_backup_${Date.now()}.md`);
     
     try {
-      await fs.rename(serverFilePath, backupPath);
+      await fs.promises.rename(serverFilePath, backupPath);
     } catch (error) {
       if (error.code !== 'ENOENT') {
         throw error;
@@ -339,7 +344,7 @@ router.post('/reset/:type/:id', async (req, res) => {
     
     // Remove metadata file
     try {
-      await fs.unlink(metadataPath);
+      await fs.promises.unlink(metadataPath);
     } catch {
       // Metadata file doesn't exist
     }
@@ -376,7 +381,7 @@ router.get('/versions/:type/:id', async (req, res) => {
     );
     
     try {
-      const stats = await fs.stat(originalPath);
+      const stats = await fs.promises.stat(originalPath);
       versions.push({
         version: 'original',
         lastModified: stats.mtime.toISOString(),
@@ -393,11 +398,11 @@ router.get('/versions/:type/:id', async (req, res) => {
     const metadataPath = serverPath.replace('.md', '.meta.json');
     
     try {
-      const stats = await fs.stat(serverPath);
+      const stats = await fs.promises.stat(serverPath);
       let metadata = {};
       
       try {
-        const metadataContent = await fs.readFile(metadataPath, 'utf8');
+        const metadataContent = await fs.promises.readFile(metadataPath, 'utf8');
         metadata = JSON.parse(metadataContent);
       } catch {
         // No metadata
@@ -430,4 +435,4 @@ router.get('/versions/:type/:id', async (req, res) => {
   }
 });
 
-module.exports = router; 
+export default router; 

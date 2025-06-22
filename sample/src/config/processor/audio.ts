@@ -6,6 +6,15 @@ import {
   Wifi,
   Speech,
   AudioLines,
+  Mic,
+  Save,
+  Settings,
+  Volume2,
+  ArrowRight,
+  Waves,
+  Brain,
+  FileText,
+  Zap,
 } from "lucide-react";
 import BypassAudio from "../../components/parameters/BypassAudio";
 import AudioClassification from "../../components/parameters/AudioClassification";
@@ -24,14 +33,18 @@ const audioConfig: Record<string, ProcessorConfig> = {
     description:
       "A basic processor where audio is passed through the processor but nothing changes.",
     features: [
-      { icon: Radio, text: "Perceptual audio coding" },
-      { icon: Share, text: "Multi-channel support" },
-      { icon: Gauge, text: "Variable bit rate encoding" },
-      { icon: Binary, text: "Spectral band replication" },
+      { icon: ArrowRight, text: "Pass-through audio" },
+      { icon: Volume2, text: "Zero latency" },
+      { icon: Waves, text: "Audio visualization" },
+      { icon: Settings, text: "Debug monitoring" },
     ],
     implementation: {
-      setup: `npm install @media/aac-encoder`,
-      usage: ``,
+      setup: `// No additional dependencies required`,
+      usage: `const processor = stream.createProcessor({
+  url: '/bypass-audio-processor.js',
+  name: 'bypass-audio-processor',
+  type: 'audio'
+});`,
     },
     // isInDevelopment: true,
   },
@@ -44,15 +57,26 @@ const audioConfig: Record<string, ProcessorConfig> = {
     name: "Audio Classification Processor",
     description: "Categorize audio clips into a series of defined categories.",
     features: [
-      { icon: Radio, text: "Psychoacoustic modeling" },
-      { icon: Share, text: "Joint stereo encoding" },
-      { icon: Gauge, text: "Variable bit rate support" },
-      { icon: Binary, text: "ID3 tag handling" },
+      { icon: Brain, text: "MediaPipe YAMNet model" },
+      { icon: Waves, text: "Real-time classification" },
+      { icon: Gauge, text: "Confidence scoring" },
+      { icon: Volume2, text: "Volume analysis" },
     ],
     implementation: {
-      setup: `npm install @media/mp3-processor`,
-      usage: ``,
-      example: ``,
+      setup: `npm install @mediapipe/tasks-audio`,
+      usage: `const processor = stream.createProcessor({
+  url: '/audio-classification-processor.js',
+  name: 'audio-classification-processor',
+  type: 'audio'
+});
+
+processor.port.postMessage({ cmd: 'start_classification' });`,
+      example: `// Listen for classification results
+processor.port.addEventListener('message', (event) => {
+  if (event.data.cmd === 'audio_data') {
+    console.log('Audio classified:', event.data);
+  }
+});`,
     },
     isInDevelopment: true,
   },
@@ -65,23 +89,31 @@ const audioConfig: Record<string, ProcessorConfig> = {
     description: "Convert real-time audio stream to text",
     features: [
       { icon: Speech, text: "AssemblyAI API" },
-      { icon: AudioLines, text: "audio pre-processing" },
+      { icon: FileText, text: "Real-time transcription" },
+      { icon: Zap, text: "Low latency streaming" },
+      { icon: AudioLines, text: "Audio preprocessing" },
     ],
     implementation: {
-      setup: `npm install @media/opus-codec`,
-      usage: `import { OpusCodec } from '@media/opus-codec';
+      setup: `npm install assemblyai`,
+      usage: `const processor = stream.createProcessor({
+  url: '/speech-to-text-processor.js',
+  name: 'speech-to-text-processor',
+  type: 'audio',
+  options: {
+    apiKey: 'your-assemblyai-api-key'
+  }
+});
 
-const codec = new OpusCodec({
-  mode: 'voip',
-  frameSize: 20
+processor.port.postMessage({
+  cmd: 'start_transcription',
+  data: { apiKey: 'your-api-key' }
 });`,
-      example: `// Example implementation
-import { useOpusCodec } from '@media/opus-codec/react';
-
-function AudioProcessor() {
-  const { encode } = useOpusCodec();
-  // Implementation details...
-}`,
+      example: `// Listen for transcription results
+processor.port.addEventListener('message', (event) => {
+  if (event.data.cmd === 'transcription_result') {
+    console.log('Transcript:', event.data.text);
+  }
+});`,
     },
     isInDevelopment: true,
   },
@@ -94,14 +126,27 @@ function AudioProcessor() {
     description:
       "Record audio from the local microphone and send it to the server.",
     features: [
-      { icon: Radio, text: "Perceptual audio coding" },
-      { icon: Share, text: "Multi-channel support" },
-      { icon: Gauge, text: "Variable bit rate encoding" },
-      { icon: Binary, text: "Spectral band replication" },
+      { icon: Mic, text: "Real-time recording" },
+      { icon: Save, text: "Multiple formats (WAV/MP3/PCM)" },
+      { icon: Settings, text: "Configurable sample rate" },
+      { icon: Volume2, text: "Multi-channel support" },
     ],
     implementation: {
-      setup: `npm install @media/aac-encoder`,
-      usage: ``,
+      setup: `npm install @breezystack/lamejs`,
+      usage: `const processor = stream.createProcessor({
+  url: '/local_recording_processor.js',
+  name: 'local_recording_audio_processor',
+  type: 'audio'
+});
+
+processor.port.postMessage({
+  command: 'start',
+  config: {
+    sampleRate: 48000,
+    numChannels: 2,
+    audioFormat: 'wav'
+  }
+});`,
     },
     isInDevelopment: false,
   },

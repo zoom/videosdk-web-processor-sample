@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Play, Code, FileCode, Terminal, Globe, Smartphone, Monitor, Edit3 } from "lucide-react";
+import { ArrowLeft, Eye, BookOpen, Code, FileCode, Terminal, Globe, Smartphone, Monitor, Edit3 } from "lucide-react";
 import VideoProcessor from "./processors/VideoProcessor";
 import AudioProcessor from "./processors/AudioProcessor";
 import SharingProcessor from "./processors/SharingProcessor";
@@ -154,7 +154,7 @@ function ProcessorDetail() {
               }`}
             >
               <div className="flex items-center space-x-2">
-                <Play className="w-4 h-4" />
+                <Eye className="w-4 h-4" />
                 <span>Preview</span>
               </div>
               {activeTab === "preview" && (
@@ -170,13 +170,15 @@ function ProcessorDetail() {
               }`}
             >
               <div className="flex items-center space-x-2">
-                <FileCode className="w-4 h-4" />
+                <BookOpen className="w-4 h-4" />
                 <span>How to Use</span>
               </div>
               {activeTab === "howto" && (
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
               )}
             </button>
+            {/* Edit Documentation tab temporarily disabled - will be available for admin users only */}
+            {/* 
             <button
               onClick={() => {
                 setActiveTab("edit");
@@ -196,6 +198,7 @@ function ProcessorDetail() {
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
               )}
             </button>
+            */}
           </div>
         </div>
       </div>
@@ -223,6 +226,8 @@ function ProcessorDetail() {
             enableSearch={true}
             enableImageZoom={true}
             enableFootnotes={true}
+            enableThemes={true}
+            defaultTheme="default"
             fallbackContent={
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {details.implementation?.setup && (

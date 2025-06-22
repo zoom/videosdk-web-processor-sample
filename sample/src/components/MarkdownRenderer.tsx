@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { dracula } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { FileText, AlertCircle, Loader2, List, Search, ZoomIn, ZoomOut, X } from 'lucide-react';
+import { FileText, AlertCircle, Loader2, List, Search, ZoomIn, ZoomOut, X, Palette, ChevronDown } from 'lucide-react';
+import { markdownThemes, getThemeById, getThemesByCategory, MarkdownTheme } from '../config/markdown-themes';
 
 interface MarkdownRendererProps {
   content: string | null;
@@ -12,6 +13,8 @@ interface MarkdownRendererProps {
   enableSearch?: boolean;
   enableImageZoom?: boolean;
   enableFootnotes?: boolean;
+  enableThemes?: boolean;
+  defaultTheme?: string;
 }
 
 interface TocItem {
@@ -25,8 +28,8 @@ interface Footnote {
   content: string;
 }
 
-// Advanced markdown parser with full feature support
-const parseMarkdown = (markdown: string, options: {
+// Advanced markdown parser with theme support
+const parseMarkdown = (markdown: string, theme: MarkdownTheme, options: {
   enableToc?: boolean;
   enableFootnotes?: boolean;
   enableImageZoom?: boolean;
@@ -51,21 +54,21 @@ const parseMarkdown = (markdown: string, options: {
     if (currentTable.length > 0) {
       elements.push(
         <div key={`table-${index}`} className="my-6 overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 border border-gray-300">
-            <thead className="bg-gray-50">
+          <table className={theme.styles.table}>
+            <thead className={theme.styles.tableHeader}>
               <tr>
                 {tableHeaders.map((header, idx) => (
-                  <th key={idx} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200 last:border-r-0">
+                  <th key={idx} className={theme.styles.tableHeaderCell}>
                     {processInlineFormatting(header.trim())}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className={theme.styles.tableBody}>
               {currentTable.map((row, rowIdx) => (
-                <tr key={rowIdx} className={rowIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                <tr key={rowIdx} className={rowIdx % 2 === 0 ? theme.styles.tableRowEven : theme.styles.tableRowOdd}>
                   {row.map((cell, cellIdx) => (
-                    <td key={cellIdx} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200 last:border-r-0">
+                    <td key={cellIdx} className={theme.styles.tableCell}>
                       {processInlineFormatting(cell.trim())}
                     </td>
                   ))}
@@ -83,10 +86,11 @@ const parseMarkdown = (markdown: string, options: {
   const flushList = (index: number) => {
     if (currentList.length > 0) {
       const ListTag = listType === 'ol' ? 'ol' : 'ul';
+      const listClass = listType === 'ol' ? theme.styles.orderedList : theme.styles.unorderedList;
       elements.push(
-        <ListTag key={`list-${index}`} className={`my-4 ${listType === 'ol' ? 'list-decimal' : 'list-disc'} list-inside space-y-2`}>
+        <ListTag key={`list-${index}`} className={listClass}>
           {currentList.map((item, idx) => (
-            <li key={idx} className="text-gray-600 leading-relaxed pl-2">
+            <li key={idx} className={theme.styles.listItem}>
               {processInlineFormatting(item)}
             </li>
           ))}
@@ -99,9 +103,9 @@ const parseMarkdown = (markdown: string, options: {
   const flushQuote = (index: number) => {
     if (currentQuote.length > 0) {
       elements.push(
-        <blockquote key={`quote-${index}`} className="my-6 pl-4 border-l-4 border-blue-500 bg-blue-50 py-2 pr-4">
+        <blockquote key={`quote-${index}`} className={theme.styles.blockquote}>
           {currentQuote.map((line, idx) => (
-            <p key={idx} className="text-gray-700 italic leading-relaxed mb-2 last:mb-0">
+            <p key={idx} className={theme.styles.blockquoteText}>
               {processInlineFormatting(line)}
             </p>
           ))}
@@ -117,37 +121,37 @@ const parseMarkdown = (markdown: string, options: {
     // Handle footnotes: [^1]
     if (options.enableFootnotes) {
       text = text.replace(/\[\^([^\]]+)\]/g, (match, footnoteId) => {
-        return `<sup><a href="#footnote-${footnoteId}" class="text-blue-600 hover:text-blue-800 text-xs">[${footnoteId}]</a></sup>`;
+        return `<sup><a href="#footnote-${footnoteId}" class="${theme.styles.footnote}">[${footnoteId}]</a></sup>`;
       });
     }
     
     // Handle links: [text](url)
-    text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800 underline">$1</a>');
+    text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, `<a href="$2" target="_blank" rel="noopener noreferrer" class="${theme.styles.link}">$1</a>`);
     
     // Handle images: ![alt](src)
     if (options.enableImageZoom) {
-      text = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" class="max-w-full h-auto my-4 rounded-lg shadow-md cursor-pointer hover:shadow-lg transition-shadow" onclick="window.openImageModal && window.openImageModal(\'$2\', \'$1\')" />');
+      text = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, `<img src="$2" alt="$1" class="${theme.styles.image} cursor-pointer hover:shadow-lg transition-shadow" onclick="window.openImageModal && window.openImageModal('$2', '$1')" />`);
     } else {
-      text = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" class="max-w-full h-auto my-4 rounded-lg shadow-md" />');
+      text = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, `<img src="$2" alt="$1" class="${theme.styles.image}" />`);
     }
     
     // Handle bold: **text**
-    text = text.replace(/\*\*([^*]+)\*\*/g, '<strong class="font-semibold">$1</strong>');
+    text = text.replace(/\*\*([^*]+)\*\*/g, `<strong class="${theme.styles.bold}">$1</strong>`);
     
     // Handle italic: *text*
-    text = text.replace(/\*([^*]+)\*/g, '<em class="italic">$1</em>');
+    text = text.replace(/\*([^*]+)\*/g, `<em class="${theme.styles.italic}">$1</em>`);
     
     // Handle strikethrough: ~~text~~
-    text = text.replace(/~~([^~]+)~~/g, '<del class="line-through">$1</del>');
+    text = text.replace(/~~([^~]+)~~/g, `<del class="${theme.styles.strikethrough}">$1</del>`);
     
     // Handle inline code: `code`
-    text = text.replace(/`([^`]+)`/g, '<code class="bg-gray-100 px-2 py-1 rounded text-sm font-mono text-gray-800">$1</code>');
+    text = text.replace(/`([^`]+)`/g, `<code class="${theme.styles.inlineCode}">$1</code>`);
     
     // Handle math: $equation$ (inline)
-    text = text.replace(/\$([^$]+)\$/g, '<span class="bg-yellow-50 px-2 py-1 rounded text-sm font-mono border">$1</span>');
+    text = text.replace(/\$([^$]+)\$/g, `<span class="${theme.styles.mathExpression}">$1</span>`);
     
     // Handle keyboard shortcuts: [[key]]
-    text = text.replace(/\[\[([^\]]+)\]\]/g, '<kbd class="px-2 py-1 bg-gray-200 border border-gray-300 rounded text-xs font-mono shadow-sm">$1</kbd>');
+    text = text.replace(/\[\[([^\]]+)\]\]/g, `<kbd class="${theme.styles.keyboardKey}">$1</kbd>`);
     
     return <span dangerouslySetInnerHTML={{ __html: text }} />;
   };
@@ -173,7 +177,7 @@ const parseMarkdown = (markdown: string, options: {
       } else {
         isInCodeBlock = false;
         elements.push(
-          <div key={i} className="my-4">
+          <div key={i} className={theme.styles.codeBlock}>
             <SyntaxHighlighter 
               language={codeLanguage} 
               style={dracula}
@@ -201,209 +205,125 @@ const parseMarkdown = (markdown: string, options: {
       isInTable = false;
       isInList = false;
       isInQuote = false;
-      elements.push(<hr key={i} className="my-8 border-gray-300" />);
+      elements.push(<hr key={i} className={theme.styles.horizontalRule} />);
+      continue;
+    }
+
+    // Handle headings
+    const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
+    if (headingMatch) {
+      flushTable(i);
+      flushList(i);
+      flushQuote(i);
+      isInTable = false;
+      isInList = false;
+      isInQuote = false;
+
+      const level = headingMatch[1].length;
+      const text = headingMatch[2];
+      const id = text.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      
+      if (options.enableToc) {
+        tocItems.push({ id, text, level });
+      }
+
+      const createHeading = (level: number, text: string, index: number) => {
+        const HeadingTag = `h${level}` as keyof JSX.IntrinsicElements;
+        const headingClass = theme.styles[`heading${level}` as keyof typeof theme.styles] as string;
+        
+        return (
+          <HeadingTag key={index} id={id} className={headingClass}>
+            {processInlineFormatting(text)}
+          </HeadingTag>
+        );
+      };
+
+      elements.push(createHeading(level, text, i));
       continue;
     }
 
     // Handle tables
-    if (trimmedLine.includes('|') && trimmedLine.split('|').length > 2) {
+    if (line.includes('|') && !isInList && !isInQuote) {
+      flushList(i);
+      flushQuote(i);
+      isInList = false;
+      isInQuote = false;
+
+      const cells = line.split('|').map(cell => cell.trim()).filter(cell => cell);
+      
       if (!isInTable) {
-        // Flush other elements
-        flushList(i);
-        flushQuote(i);
-        isInList = false;
-        isInQuote = false;
-        
-        // Start table
         isInTable = true;
-        tableHeaders = trimmedLine.split('|').map(h => h.trim()).filter(h => h !== '');
+        tableHeaders = cells;
+        continue;
+      } else if (line.match(/^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/)) {
+        // Table separator line, skip
         continue;
       } else {
-        // Check if this is a separator line (|---|---|)
-        if (trimmedLine.includes('---')) {
-          continue;
-        }
-        // Add table row
-        const cells = trimmedLine.split('|').map(cell => cell.trim()).filter(cell => cell !== '');
         currentTable.push(cells);
         continue;
       }
     } else if (isInTable) {
-      // End of table
       flushTable(i);
       isInTable = false;
     }
 
     // Handle lists
-    const unorderedMatch = trimmedLine.match(/^[-*+]\s+(.+)$/);
-    const orderedMatch = trimmedLine.match(/^\d+\.\s+(.+)$/);
-    const taskMatch = trimmedLine.match(/^[-*+]\s+\[([ x])\]\s+(.+)$/);
+    const listMatch = line.match(/^(\s*)([-*+]|\d+\.)\s+(.+)$/);
+    if (listMatch) {
+      flushTable(i);
+      flushQuote(i);
+      isInTable = false;
+      isInQuote = false;
 
-    if (unorderedMatch || orderedMatch || taskMatch) {
-      if (!isInList || (isInList && ((unorderedMatch || taskMatch) && listType === 'ol') || (orderedMatch && listType === 'ul'))) {
-        // Flush other elements
-        flushTable(i);
-        flushQuote(i);
-        isInTable = false;
-        isInQuote = false;
-        
-        if (isInList) flushList(i);
-        
-        // Start new list
+      const newListType = listMatch[2].match(/\d+\./) ? 'ol' : 'ul';
+      
+      if (!isInList || listType !== newListType) {
+        if (isInList) {
+          flushList(i);
+        }
         isInList = true;
-        listType = orderedMatch ? 'ol' : 'ul';
+        listType = newListType;
         currentList = [];
       }
-
-      if (taskMatch) {
-        const [, checked, text] = taskMatch;
-        currentList.push(`<span class="flex items-center"><input type="checkbox" ${checked === 'x' ? 'checked' : ''} disabled class="mr-2" />${text}</span>`);
-      } else {
-        const text = unorderedMatch ? unorderedMatch[1] : orderedMatch![1];
-        currentList.push(text);
-      }
-      continue;
-    } else if (isInList && trimmedLine === '') {
-      // Empty line might end list, but let's continue for now
+      
+      currentList.push(listMatch[3]);
       continue;
     } else if (isInList) {
-      // End of list
       flushList(i);
       isInList = false;
     }
 
     // Handle blockquotes
-    if (trimmedLine.startsWith('> ')) {
+    if (line.startsWith('>')) {
+      flushTable(i);
+      flushList(i);
+      isInTable = false;
+      isInList = false;
+
       if (!isInQuote) {
-        // Flush other elements
-        flushTable(i);
-        flushList(i);
-        isInTable = false;
-        isInList = false;
         isInQuote = true;
         currentQuote = [];
       }
-      currentQuote.push(trimmedLine.substring(2));
-      continue;
-    } else if (isInQuote && trimmedLine === '') {
-      // Empty line in quote
-      currentQuote.push('');
+      
+      currentQuote.push(line.substring(1).trim());
       continue;
     } else if (isInQuote) {
-      // End of quote
       flushQuote(i);
       isInQuote = false;
     }
 
-    // Handle footnote definitions: [^1]: content
-    if (options.enableFootnotes && trimmedLine.match(/^\[\^([^\]]+)\]:\s*(.+)$/)) {
-      const match = trimmedLine.match(/^\[\^([^\]]+)\]:\s*(.+)$/);
-      if (match) {
-        footnotes.push({
-          id: match[1],
-          content: match[2]
-        });
-      }
-      continue;
-    }
-
-    // Handle headings
-    const createHeading = (level: number, text: string, index: number) => {
-      const headingText = text.trim();
-      const headingId = options.enableToc ? `heading-${headingText.toLowerCase().replace(/[^a-z0-9]+/g, '-')}` : undefined;
-      
-      if (options.enableToc && headingText) {
-        tocItems.push({
-          id: headingId!,
-          text: headingText,
-          level: level
-        });
-      }
-
-      const HeadingTag = `h${level}` as keyof JSX.IntrinsicElements;
-      const className = {
-        1: "text-3xl font-bold text-gray-800 mb-6 mt-8 first:mt-0",
-        2: "text-2xl font-semibold text-gray-800 mb-4 mt-6",
-        3: "text-xl font-semibold text-gray-700 mb-3 mt-4",
-        4: "text-lg font-medium text-gray-700 mb-2 mt-3",
-        5: "text-base font-medium text-gray-700 mb-2 mt-3",
-        6: "text-sm font-medium text-gray-700 mb-2 mt-3"
-      }[level];
-
-      return React.createElement(HeadingTag, {
-        key: index,
-        id: headingId,
-        className: className
-      }, processInlineFormatting(headingText));
-    };
-
-    if (trimmedLine.startsWith('# ')) {
-      flushTable(i);
-      flushList(i);
-      flushQuote(i);
-      isInTable = false;
-      isInList = false;
-      isInQuote = false;
-      elements.push(createHeading(1, trimmedLine.substring(2), i));
-    } else if (trimmedLine.startsWith('## ')) {
-      flushTable(i);
-      flushList(i);
-      flushQuote(i);
-      isInTable = false;
-      isInList = false;
-      isInQuote = false;
-      elements.push(createHeading(2, trimmedLine.substring(3), i));
-    } else if (trimmedLine.startsWith('### ')) {
-      flushTable(i);
-      flushList(i);
-      flushQuote(i);
-      isInTable = false;
-      isInList = false;
-      isInQuote = false;
-      elements.push(createHeading(3, trimmedLine.substring(4), i));
-    } else if (trimmedLine.startsWith('#### ')) {
-      flushTable(i);
-      flushList(i);
-      flushQuote(i);
-      isInTable = false;
-      isInList = false;
-      isInQuote = false;
-      elements.push(createHeading(4, trimmedLine.substring(5), i));
-    } else if (trimmedLine.startsWith('##### ')) {
-      flushTable(i);
-      flushList(i);
-      flushQuote(i);
-      isInTable = false;
-      isInList = false;
-      isInQuote = false;
-      elements.push(createHeading(5, trimmedLine.substring(6), i));
-    } else if (trimmedLine.startsWith('###### ')) {
-      flushTable(i);
-      flushList(i);
-      flushQuote(i);
-      isInTable = false;
-      isInList = false;
-      isInQuote = false;
-      elements.push(createHeading(6, trimmedLine.substring(7), i));
-    }
-    // Handle empty lines
-    else if (trimmedLine === '') {
-      // Add some spacing for empty lines, but not if we're in special blocks
-      if (!isInTable && !isInList && !isInQuote) {
-        elements.push(<div key={i} className="my-2" />);
-      }
-    }
     // Handle regular paragraphs
-    else if (trimmedLine !== '') {
+    if (trimmedLine) {
       flushTable(i);
       flushList(i);
       flushQuote(i);
       isInTable = false;
       isInList = false;
       isInQuote = false;
+
       elements.push(
-        <p key={i} className="mb-4 text-gray-600 leading-relaxed">
-          {processInlineFormatting(trimmedLine)}
+        <p key={i} className={theme.styles.paragraph}>
+          {processInlineFormatting(line)}
         </p>
       );
     }
@@ -413,21 +333,6 @@ const parseMarkdown = (markdown: string, options: {
   flushTable(lines.length);
   flushList(lines.length);
   flushQuote(lines.length);
-
-  // Add footnotes section
-  if (options.enableFootnotes && footnotes.length > 0) {
-    elements.push(
-      <div key="footnotes" className="mt-12 pt-8 border-t border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Footnotes</h3>
-        {footnotes.map((footnote) => (
-          <div key={footnote.id} id={`footnote-${footnote.id}`} className="mb-2 text-sm text-gray-600">
-            <span className="font-medium">[{footnote.id}]</span>{' '}
-            <span>{processInlineFormatting(footnote.content)}</span>
-          </div>
-        ))}
-      </div>
-    );
-  }
 
   return { elements, tocItems, footnotes };
 };
@@ -440,12 +345,18 @@ export default function MarkdownRenderer({
   enableToc = true,
   enableSearch = true,
   enableImageZoom = true,
-  enableFootnotes = true
+  enableFootnotes = true,
+  enableThemes = true,
+  defaultTheme = 'default'
 }: MarkdownRendererProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [showToc, setShowToc] = useState(false);
   const [zoomedImage, setZoomedImage] = useState<{src: string; alt: string} | null>(null);
+  const [currentTheme, setCurrentTheme] = useState<string>(defaultTheme);
+  const [showThemeSelector, setShowThemeSelector] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
+
+  const theme = getThemeById(currentTheme);
 
   // Setup image zoom modal
   useEffect(() => {
@@ -493,14 +404,14 @@ export default function MarkdownRenderer({
         const text = textNode.textContent || '';
         const regex = new RegExp(searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
         if (regex.test(text)) {
-          const highlightedText = text.replace(regex, '<mark class="search-highlight bg-yellow-200 px-1 rounded">$&</mark>');
+          const highlightedText = text.replace(regex, `<mark class="search-highlight ${theme.styles.searchHighlight}">$&</mark>`);
           const wrapper = document.createElement('span');
           wrapper.innerHTML = highlightedText;
           textNode.parentNode?.replaceChild(wrapper, textNode);
         }
       });
     }
-  }, [searchQuery]);
+  }, [searchQuery, theme.styles.searchHighlight]);
 
   if (loading) {
     return (
@@ -559,7 +470,7 @@ export default function MarkdownRenderer({
     );
   }
 
-  const parseResult = parseMarkdown(content, {
+  const parseResult = parseMarkdown(content, theme, {
     enableToc,
     enableFootnotes,
     enableImageZoom
@@ -568,18 +479,64 @@ export default function MarkdownRenderer({
   const { elements, tocItems } = parseResult;
 
   return (
-    <div className="relative">
+    <div className={theme.styles.container}>
       {/* Header Controls */}
-      <div className="flex items-center justify-between mb-6 p-4 bg-gray-50 rounded-lg">
+      <div className={theme.styles.headerControls}>
         <div className="flex items-center space-x-4">
           {enableToc && tocItems.length > 0 && (
             <button
               onClick={() => setShowToc(!showToc)}
-              className="flex items-center space-x-2 px-3 py-2 bg-white rounded-md shadow-sm hover:shadow-md transition-shadow"
+              className={theme.styles.button}
             >
               <List className="w-4 h-4" />
               <span className="text-sm font-medium">Table of Contents</span>
             </button>
+          )}
+          
+          {enableThemes && (
+            <div className="relative">
+              <button
+                onClick={() => setShowThemeSelector(!showThemeSelector)}
+                className={theme.styles.button}
+              >
+                <Palette className="w-4 h-4" />
+                <span className="text-sm font-medium">{theme.name}</span>
+                <ChevronDown className="w-3 h-3" />
+              </button>
+              
+              {showThemeSelector && (
+                <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 z-10">
+                  <div className="p-3 border-b border-gray-200">
+                    <h3 className="text-sm font-semibold text-gray-800">Choose Theme</h3>
+                  </div>
+                  
+                  {(['light', 'dark', 'colorful'] as const).map(category => (
+                    <div key={category} className="p-2">
+                      <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2 px-2">
+                        {category} Themes
+                      </h4>
+                      {getThemesByCategory(category).map(themeOption => (
+                        <button
+                          key={themeOption.id}
+                          onClick={() => {
+                            setCurrentTheme(themeOption.id);
+                            setShowThemeSelector(false);
+                          }}
+                          className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
+                            currentTheme === themeOption.id
+                              ? 'bg-blue-50 text-blue-700 font-medium'
+                              : 'text-gray-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          <div className="font-medium">{themeOption.name}</div>
+                          <div className="text-xs text-gray-500">{themeOption.description}</div>
+                        </button>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </div>
         
@@ -591,7 +548,7 @@ export default function MarkdownRenderer({
               placeholder="Search documentation..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className={theme.styles.input}
             />
             {searchQuery && (
               <button
@@ -608,7 +565,7 @@ export default function MarkdownRenderer({
       <div className="flex gap-6">
         {/* Table of Contents Sidebar */}
         {enableToc && showToc && tocItems.length > 0 && (
-          <div className="w-64 flex-shrink-0">
+          <div className={theme.styles.tocSidebar}>
             <div className="sticky top-4 bg-white rounded-lg shadow-lg p-4 max-h-96 overflow-y-auto">
               <h3 className="text-sm font-semibold text-gray-800 mb-3">Contents</h3>
               <nav className="space-y-1">
@@ -616,7 +573,7 @@ export default function MarkdownRenderer({
                   <a
                     key={item.id}
                     href={`#${item.id}`}
-                    className={`block text-sm text-gray-600 hover:text-blue-600 transition-colors ${
+                    className={`${theme.styles.tocLink} ${
                       item.level === 1 ? 'font-medium' : 
                       item.level === 2 ? 'pl-3' :
                       item.level === 3 ? 'pl-6' :
@@ -639,7 +596,7 @@ export default function MarkdownRenderer({
 
         {/* Main Content */}
         <div className="flex-1 prose prose-gray max-w-none">
-          <div className="bg-white rounded-2xl shadow-lg p-8" ref={contentRef}>
+          <div className={theme.styles.content} ref={contentRef}>
             {elements}
           </div>
         </div>
@@ -668,6 +625,14 @@ export default function MarkdownRenderer({
             )}
           </div>
         </div>
+      )}
+      
+      {/* Click outside to close theme selector */}
+      {showThemeSelector && (
+        <div 
+          className="fixed inset-0 z-5" 
+          onClick={() => setShowThemeSelector(false)}
+        />
       )}
     </div>
   );

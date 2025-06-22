@@ -273,6 +273,44 @@ const videoConfig: Record<string, ProcessorConfig> = {
         `,
     },
     isInDevelopment: false,
+  },
+  "theme-demo": {
+    id: "theme-demo",
+    url: baseUrl + "/theme-demo.js", // placeholder URL
+    options: {},
+    render: () => null, // no special parameters needed
+    name: "Theme Demo",
+    description:
+      "Showcase the markdown theme system with live theme switching. Perfect for testing different themes!",
+    features: [{ icon: Video, text: "theme showcase" }],
+    platforms: [
+      { icon: Globe, text: "Web" },
+    ],
+    implementation: {
+      usage: `
+          // Theme Demo Processor
+          // Use the theme selector in the toolbar to switch themes
+          const themeDemo = {
+            name: 'Theme Demo',
+            description: 'Live theme switching demonstration'
+          };
+        `,
+      example: `
+          // Example theme configuration
+          const customTheme = {
+            id: 'custom',
+            name: 'Custom Theme',
+            category: 'light',
+            codeTheme: 'github',
+            styles: {
+              content: 'bg-white rounded-lg p-8',
+              heading1: 'text-3xl font-bold text-blue-600',
+              // ... more styles
+            }
+          };
+        `,
+    },
+    isInDevelopment: false,
   }
 };
 
