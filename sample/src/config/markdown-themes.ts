@@ -1,10 +1,11 @@
 // Import code themes dynamically to avoid TypeScript issues
 const codeThemes = {
   dracula: 'dracula',
-  github: 'github', 
-  vs: 'vs',
+  prism: 'prism', 
+  tomorrow: 'tomorrow',
   okaidia: 'okaidia',
-  synthwave84: 'synthwave84'
+  synthwave84: 'synthwave84',
+  twilight: 'twilight'
 } as const;
 
 export interface MarkdownTheme {
@@ -85,7 +86,7 @@ export const markdownThemes: MarkdownTheme[] = [
     name: 'Default',
     description: 'Clean and minimal light theme',
     category: 'light',
-    codeTheme: 'github',
+    codeTheme: 'prism',
     styles: {
       container: 'relative',
       content: 'bg-white rounded-2xl shadow-lg p-8',
@@ -207,7 +208,7 @@ export const markdownThemes: MarkdownTheme[] = [
     name: 'GitHub',
     description: 'GitHub-style documentation theme',
     category: 'light',
-    codeTheme: 'github',
+    codeTheme: 'prism',
     styles: {
       container: 'relative',
       content: 'bg-white rounded-lg border border-gray-200 p-8',
@@ -249,16 +250,16 @@ export const markdownThemes: MarkdownTheme[] = [
       horizontalRule: 'my-6 border-t border-gray-300',
       footnote: 'text-blue-600 hover:underline text-xs',
       mathExpression: 'bg-blue-50 px-2 py-1 rounded text-sm font-mono border border-blue-200',
-      keyboardKey: 'px-2 py-1 bg-gray-100 border border-gray-300 rounded text-xs font-mono',
+      keyboardKey: 'px-2 py-1 bg-gray-200 border border-gray-300 rounded text-xs font-mono shadow-sm',
       
-      searchHighlight: 'bg-yellow-200 px-1',
+      searchHighlight: 'bg-yellow-200 px-1 rounded',
       tocSidebar: 'w-64 flex-shrink-0',
-      tocLink: 'block text-sm text-gray-600 hover:text-blue-600 transition-colors py-1',
+      tocLink: 'block text-sm text-gray-600 hover:text-blue-600 transition-colors',
       tocLinkActive: 'text-blue-600 font-medium',
       
-      headerControls: 'flex items-center justify-between mb-6 p-3 bg-gray-50 border border-gray-200 rounded-md',
-      button: 'flex items-center space-x-2 px-3 py-1.5 bg-white border border-gray-300 rounded-md text-sm hover:bg-gray-50 transition-colors',
-      input: 'px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+      headerControls: 'flex items-center justify-between mb-6 p-4 bg-gray-50 rounded-lg',
+      button: 'flex items-center space-x-2 px-3 py-2 bg-white rounded-md shadow-sm hover:shadow-md transition-shadow',
+      input: 'px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent'
     }
   },
 
@@ -266,7 +267,7 @@ export const markdownThemes: MarkdownTheme[] = [
   {
     id: 'terminal',
     name: 'Terminal',
-    description: 'Retro terminal-style theme',
+    description: 'Retro terminal-inspired theme',
     category: 'dark',
     codeTheme: 'okaidia',
     styles: {
@@ -329,7 +330,7 @@ export const markdownThemes: MarkdownTheme[] = [
     name: 'Material',
     description: 'Google Material Design inspired theme',
     category: 'light',
-    codeTheme: 'vs',
+    codeTheme: 'tomorrow',
     styles: {
       container: 'relative',
       content: 'bg-white rounded-2xl shadow-xl p-8',

@@ -15,6 +15,9 @@ import {
   Brain,
   FileText,
   Zap,
+  Music,
+  Sliders,
+  Clock,
 } from "lucide-react";
 import BypassAudio from "../../components/parameters/BypassAudio";
 import AudioClassification from "../../components/parameters/AudioClassification";
@@ -155,18 +158,15 @@ processor.port.postMessage({
     url: window.origin + "/pitch-shift-audio-processor.js",
     options: {},
     render: PitchShiftAudioProcessor,
-    name: "Pitch Shift Audio Processor",
+    name: "Pitch Shift Processor",
     description:
-      "Record audio from the local microphone and send it to the server.",
+      "Shift the pitch of the audio stream. This processor is useful for creating a robot voice or changing the pitch of the audio stream.",
     features: [
-      { icon: Radio, text: "Perceptual audio coding" },
-      { icon: Share, text: "Multi-channel support" },
-      { icon: Gauge, text: "Variable bit rate encoding" },
-      { icon: Binary, text: "Spectral band replication" },
+      { icon: Volume2, text: "Live audio transformation" },
+      { icon: Clock, text: "Low-latency processing" },
     ],
     implementation: {
-      setup: `npm install @media/aac-encoder`,
-      usage: ``,
+      setup: `// Uses Web Audio API and custom pitch shifting algorithms`,
     },
     isInDevelopment: false,
   },

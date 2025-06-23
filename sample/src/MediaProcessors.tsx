@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Video,
   AudioLines,
@@ -10,15 +10,17 @@ import {
   Waves,
   Gamepad,
   Mic,
+  Music,
+  ScreenShare,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 type Processor = {
   id: string;
   name: string;
   description: string;
   icon: React.ReactNode;
-  isInDevelopment?: boolean; // 新增开发状态标志
+  isInDevelopment?: boolean;
 };
 
 const videoProcessors: Processor[] = [
@@ -79,10 +81,10 @@ const audioProcessors: Processor[] = [
   },
   {
     id: "pitch-shift-processor",
-    name: "Pitch Shift Audio Processor",
+    name: "Pitch Shift Processor",
     description:
-      "Record audio from the local microphone and send it to the server.",
-    icon: <Mic className="w-6 h-6" />,
+      "Shift the pitch of the audio stream. This processor is useful for creating a robot voice or changing the pitch of the audio stream.",
+    icon: <Music className="w-6 h-6" />,
   },
 ];
 
@@ -91,7 +93,7 @@ const sharingProcessors: Processor[] = [
     id: "social-media-share",
     name: "Social Media Share",
     description: "Direct integration with major social platforms",
-    icon: <Share2 className="w-6 h-6" />,
+    icon: <ScreenShare className="w-6 h-6" />,
     isInDevelopment: true,
   },
   {
@@ -105,7 +107,7 @@ const sharingProcessors: Processor[] = [
     id: "embed-code",
     name: "Embed Code",
     description: "Generate embed codes for websites and platforms",
-    icon: <Share2 className="w-6 h-6" />,
+    icon: <ScreenShare className="w-6 h-6" />,
     isInDevelopment: true,
   },
 ];
@@ -113,9 +115,31 @@ const sharingProcessors: Processor[] = [
 type Tab = "video" | "audio" | "sharing";
 
 function MediaProcessors() {
-  const [activeTab, setActiveTab] = useState<Tab>("video");
+  const [searchParams, setSearchParams] = useSearchParams();
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const navigate = useNavigate();
+
+  // Get initial tab from URL params, default to "video"
+  const getInitialTab = (): Tab => {
+    const tabFromUrl = searchParams.get('tab') as Tab;
+    return tabFromUrl && ['video', 'audio', 'sharing'].includes(tabFromUrl) ? tabFromUrl : 'video';
+  };
+
+  const [activeTab, setActiveTab] = useState<Tab>(getInitialTab);
+
+  // Update URL when tab changes
+  const handleTabChange = (tab: Tab) => {
+    setActiveTab(tab);
+    setSearchParams({ tab });
+  };
+
+  // Update activeTab when URL changes (browser back/forward)
+  useEffect(() => {
+    const tabFromUrl = getInitialTab();
+    if (tabFromUrl !== activeTab) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [searchParams]);
 
   const getProcessors = (tab: Tab) => {
     switch (tab) {
@@ -165,11 +189,11 @@ function MediaProcessors() {
           {[
             { id: "video", icon: Video, label: "Video" },
             { id: "audio", icon: AudioLines, label: "Audio" },
-            { id: "sharing", icon: Share2, label: "Sharing" },
+            { id: "sharing", icon: ScreenShare, label: "Sharing" },
           ].map(({ id, icon: Icon, label }) => (
             <button
               key={id}
-              onClick={() => setActiveTab(id as Tab)}
+              onClick={() => handleTabChange(id as Tab)}
               className={`flex items-center space-x-2 px-8 py-4 rounded-xl transition-all duration-300 transform ${
                 activeTab === id
                   ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white scale-105 shadow-lg shadow-blue-200"

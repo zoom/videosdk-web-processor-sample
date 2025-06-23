@@ -52,6 +52,11 @@ function ProcessorDetail() {
     setActiveTab("howto");
   };
 
+  // Handle back navigation with tab state preservation
+  const handleBackToProcessors = () => {
+    navigate(`/processors?tab=${type}`);
+  };
+
   // Handle resetting to original version
   const handleResetToOriginal = async () => {
     if (!type || !id) return;
@@ -103,7 +108,7 @@ function ProcessorDetail() {
         <div className="container mx-auto px-4">
           <div className="py-4">
             <button
-              onClick={() => navigate("/processors")}
+              onClick={handleBackToProcessors}
               className="inline-flex items-center px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-lg text-white transition-colors"
             >
               <ArrowLeft className="w-5 h-5 mr-2" />

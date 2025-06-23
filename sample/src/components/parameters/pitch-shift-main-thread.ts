@@ -1,6 +1,6 @@
 /**
- * 主线程音频播放管理器
- * 专门负责接收来自pitch-shift-audio-processor的音频数据并进行实时播放
+ * Main thread audio playback manager
+ * Responsible for receiving audio data from pitch-shift-audio-processor and playing it in real-time
  */
 export class PitchShiftAudioManager {
   private workletNode: AudioWorkletNode | null = null;
@@ -8,34 +8,34 @@ export class PitchShiftAudioManager {
   private playbackContext: AudioContext | null = null;
   private sourceNode: AudioBufferSourceNode | null = null;
   
-  // 数据缓冲管理
+  // data buffer management
   private audioDataQueue: Float32Array[] = [];
   private isPlaying: boolean = false;
   private sampleRate: number = 48000;
-  private maxQueueSize: number = 50; // 最大缓冲队列大小
+  private maxQueueSize: number = 50; // maximum buffer queue size
   
-  // 播放调度 - 低延迟优化
+  // playback scheduling - low latency optimization
   private isBuffering: boolean = true;
-  private minBufferSize: number = 1024; // 进一步减小缓冲大小，超低延迟
+  private minBufferSize: number = 1024; // further reduce buffer size, ultra-low latency
   private playbackScheduler: number | null = null;
   
-  // 音频质量控制
+  // audio quality control
   private lastValidSample: number = 0;
-  private fadeInOut: boolean = false; // 禁用淡入淡出，避免实时流的噪音
+  private fadeInOut: boolean = false; // disable fade in/out, avoid noise in real-time stream
   
   constructor() {}
 
   /**
-   * 初始化播放管理器（不需要加载processor，只创建播放上下文）
+   * Initialize playback manager (no need to load processor, only create playback context)
    */
   async initialize(sampleRate: number = 48000): Promise<void> {
     try {
       this.sampleRate = sampleRate;
       
-      // 创建低延迟播放上下文
+      // create low latency playback context
       this.playbackContext = new AudioContext({
         sampleRate: this.sampleRate,
-        latencyHint: 'interactive' // 使用最低延迟模式
+        latencyHint: 'interactive' // use lowest latency mode
       });
       
       console.log('[PitchShift] Playback manager initialized');
@@ -46,12 +46,12 @@ export class PitchShiftAudioManager {
   }
 
   /**
-   * 连接到已存在的AudioWorkletNode来接收音频数据
+   * Connect to an existing AudioWorkletNode to receive audio data
    */
   connectToWorkletNode(workletNode: AudioWorkletNode): void {
     this.workletNode = workletNode;
     
-    // 监听处理器消息
+    // listen to processor messages
     this.workletNode.port.onmessage = (event) => {
       this.handleProcessorMessage(event.data);
     };
@@ -60,33 +60,33 @@ export class PitchShiftAudioManager {
   }
 
   /**
-   * 处理从AudioWorklet传来的消息
+   * Handle messages from the AudioWorklet
    */
   private handleProcessorMessage(data: any): void {
     if (data.command === 'preview') {
-      // 处理预览播放命令
+      // handle preview playback command
       console.log('[PitchShift] Received preview command with audio data');
       this.enqueueAudioData(data.audioData, data.sampleRate, data.timestamp);
     } else if (data.type === 'processed-audio-data') {
-      // 兼容旧的消息格式
+      // handle old message format
       this.enqueueAudioData(data.audioData, data.sampleRate, data.timestamp);
     }
   }
 
   /**
-   * 公开方法：处理外部传入的处理器消息
+   * Public method: handle external processor messages
    */
   public handleExternalMessage(data: any): void {
     this.handleProcessorMessage(data);
   }
 
   /**
-   * 连接到外部处理器端口
+   * Connect to external processor port
    */
   connectToProcessorPort(port: MessagePort): void {
     this.processorPort = port;
     
-    // 监听处理器消息
+    // listen to processor messages
     this.processorPort.onmessage = (event) => {
       this.handleProcessorMessage(event.data);
     };
@@ -95,26 +95,26 @@ export class PitchShiftAudioManager {
   }
 
   /**
-   * 将音频数据加入队列
+   * Add audio data to the queue
    */
   private enqueueAudioData(audioData: Float32Array, sampleRate: number, timestamp: number): void {
     try {
-      // 检查队列大小，防止内存溢出
+      // check queue size, prevent memory overflow
       if (this.audioDataQueue.length >= this.maxQueueSize) {
         console.warn('[PitchShift] Audio queue overflow, dropping oldest data');
-        this.audioDataQueue.shift(); // 移除最旧的数据
+        this.audioDataQueue.shift(); // remove oldest data
       }
       
-      // 验证和修复音频数据
+      // validate and fix audio data
       const validatedData = this.validateAudioData(audioData);
       this.audioDataQueue.push(validatedData);
       
-      // 更新采样率（如果需要）
+      // update sample rate (if needed)
       if (sampleRate && sampleRate !== this.sampleRate) {
         this.sampleRate = sampleRate;
       }
       
-      // 自动开始播放（如果缓冲足够）
+      // automatically start playback (if buffer is enough)
       if (!this.isPlaying && this.shouldStartPlayback()) {
         this.startPlayback();
       }
@@ -124,7 +124,7 @@ export class PitchShiftAudioManager {
   }
 
   /**
-   * 验证和修复音频数据（简化版本，减少处理）
+   * Validate and fix audio data (simplified version, reduce processing)
    */
   private validateAudioData(data: Float32Array): Float32Array {
     const validatedData = new Float32Array(data.length);
@@ -132,12 +132,12 @@ export class PitchShiftAudioManager {
     for (let i = 0; i < data.length; i++) {
       let sample = data[i];
       
-      // 仅检查NaN和无穷大
+      // only check NaN and infinity
       if (!isFinite(sample)) {
-        sample = 0; // 使用静音替代无效样本
+        sample = 0; // use silence instead of invalid samples
       }
       
-      // 轻微限制幅度范围，避免削波
+      // slightly limit amplitude range, avoid clipping
       sample = Math.max(-0.98, Math.min(0.98, sample));
       
       validatedData[i] = sample;
@@ -147,7 +147,7 @@ export class PitchShiftAudioManager {
   }
 
   /**
-   * 判断是否应该开始播放
+   * Check if playback should start
    */
   private shouldStartPlayback(): boolean {
     const totalSamples = this.audioDataQueue.reduce((sum, data) => sum + data.length, 0);
@@ -155,7 +155,7 @@ export class PitchShiftAudioManager {
   }
 
   /**
-   * 开始播放处理后的音频
+   * Start playing processed audio
    */
   async startPlayback(): Promise<void> {
     if (!this.playbackContext || this.isPlaying) {
@@ -175,7 +175,7 @@ export class PitchShiftAudioManager {
   }
 
   /**
-   * 调度下一个音频缓冲区
+   * Schedule the next audio buffer
    */
   private scheduleNextBuffer(): void {
     if (!this.isPlaying || !this.playbackContext) {
@@ -183,53 +183,53 @@ export class PitchShiftAudioManager {
     }
 
     try {
-      // 从队列中获取音频数据
+      // get audio data from the queue
       const audioData = this.dequeueAudioData();
       if (!audioData || audioData.length === 0) {
-        // 没有数据时等待并重试
+        // wait and retry if no data
         this.playbackScheduler = window.setTimeout(() => this.scheduleNextBuffer(), 10);
         return;
       }
 
-      // 创建音频缓冲区
+      // create audio buffer
       const buffer = this.playbackContext.createBuffer(1, audioData.length, this.sampleRate);
       const channelData = buffer.getChannelData(0);
       channelData.set(audioData);
 
-      // 创建源节点
+      // create source node
       const source = this.playbackContext.createBufferSource();
       source.buffer = buffer;
       source.connect(this.playbackContext.destination);
 
-      // 设置播放结束回调
+      // set playback end callback
       source.onended = () => {
         if (this.isPlaying) {
           this.scheduleNextBuffer();
         }
       };
 
-      // 立即播放，最小延迟
-      const playTime = this.playbackContext.currentTime; // 去除额外延迟
+      // immediately play, minimum delay
+      const playTime = this.playbackContext.currentTime; // remove extra delay
       source.start(playTime);
 
       this.sourceNode = source;
     } catch (error) {
       console.error('[PitchShift] Error scheduling buffer:', error);
-      // 发生错误时重试
+      // retry if error occurs
       this.playbackScheduler = window.setTimeout(() => this.scheduleNextBuffer(), 50);
     }
   }
 
   /**
-   * 从队列中获取音频数据
+   * Get audio data from the queue
    */
   private dequeueAudioData(): Float32Array | null {
     if (this.audioDataQueue.length === 0) {
       return null;
     }
 
-    // 减少合并数量以避免延迟和质量问题
-    const maxCombine = Math.min(1, this.audioDataQueue.length); // 不合并，直接播放单个缓冲区
+    // reduce merging count to avoid delay and quality issues
+    const maxCombine = Math.min(1, this.audioDataQueue.length); // don't merge, play single buffer
     const combinedLength = this.audioDataQueue.slice(0, maxCombine)
       .reduce((sum, data) => sum + data.length, 0);
 
@@ -248,7 +248,7 @@ export class PitchShiftAudioManager {
   }
 
   /**
-   * 停止播放
+   * Stop playback
    */
   stopPlayback(): void {
     this.isPlaying = false;
@@ -257,7 +257,7 @@ export class PitchShiftAudioManager {
       try {
         this.sourceNode.stop();
       } catch (error) {
-        // 忽略已经停止的节点错误
+        // ignore error if node is already stopped
       }
       this.sourceNode = null;
     }
@@ -267,14 +267,14 @@ export class PitchShiftAudioManager {
       this.playbackScheduler = null;
     }
     
-    // 清空队列
+    // clear queue
     this.audioDataQueue = [];
     
     console.log('[PitchShift] Playback stopped');
   }
 
   /**
-   * 开始变调处理和传输
+   * Start pitch shift processing and transmission
    */
   startPitchShift(): void {
     const port = this.processorPort || this.workletNode?.port;
@@ -285,7 +285,7 @@ export class PitchShiftAudioManager {
   }
 
   /**
-   * 停止变调处理和传输
+   * Stop pitch shift processing and transmission
    */
   stopPitchShift(): void {
     const port = this.processorPort || this.workletNode?.port;
@@ -297,7 +297,7 @@ export class PitchShiftAudioManager {
   }
 
   /**
-   * 开始预览播放
+   * Start preview playback
    */
   startPreview(): void {
     const port = this.processorPort || this.workletNode?.port;
@@ -309,7 +309,7 @@ export class PitchShiftAudioManager {
   }
 
   /**
-   * 停止预览播放
+   * Stop preview playback
    */
   stopPreview(): void {
     const port = this.processorPort || this.workletNode?.port;
@@ -321,7 +321,7 @@ export class PitchShiftAudioManager {
   }
 
   /**
-   * 更新变调参数
+   * Update pitch shift parameters
    */
   updatePitchShiftConfig(pitchRatio: number, formantRatio: number = 0, dryWet: number = 0): void {
     const port = this.processorPort || this.workletNode?.port;
@@ -339,14 +339,14 @@ export class PitchShiftAudioManager {
   }
 
   /**
-   * 获取播放状态
+   * Get playback status
    */
   isPlaybackActive(): boolean {
     return this.isPlaying;
   }
 
   /**
-   * 获取队列状态
+   * Get queue status
    */
   getQueueStatus(): { queueLength: number; totalSamples: number } {
     const totalSamples = this.audioDataQueue.reduce((sum, data) => sum + data.length, 0);
@@ -357,7 +357,7 @@ export class PitchShiftAudioManager {
   }
 
   /**
-   * 清理资源
+   * Clean up resources
    */
   cleanup(): void {
     this.stopPitchShift();

@@ -1,6 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { dracula } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { 
+  dracula, 
+  okaidia,
+  synthwave84,
+  prism,
+  tomorrow,
+  twilight
+} from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { FileText, AlertCircle, Loader2, List, Search, ZoomIn, ZoomOut, X, Palette, ChevronDown } from 'lucide-react';
 import { markdownThemes, getThemeById, getThemesByCategory, MarkdownTheme } from '../config/markdown-themes';
 
@@ -28,6 +35,36 @@ interface Footnote {
   content: string;
 }
 
+// Function to get the appropriate code theme based on markdown theme
+const getCodeTheme = (theme: MarkdownTheme) => {
+  // Map theme names to actual Prism theme objects
+  const codeThemes: Record<string, any> = {
+    'dracula': dracula,
+    'okaidia': okaidia,
+    'synthwave84': synthwave84,
+    'prism': prism,
+    'tomorrow': tomorrow,
+    'twilight': twilight
+  };
+
+  // Return the specified theme or fallback based on category
+  if (codeThemes[theme.codeTheme]) {
+    return codeThemes[theme.codeTheme];
+  }
+
+  // Fallback based on category
+  switch (theme.category) {
+    case 'light':
+      return prism;
+    case 'dark':
+      return dracula;
+    case 'colorful':
+      return synthwave84;
+    default:
+      return prism;
+  }
+};
+
 // Advanced markdown parser with theme support
 const parseMarkdown = (markdown: string, theme: MarkdownTheme, options: {
   enableToc?: boolean;
@@ -49,6 +86,9 @@ const parseMarkdown = (markdown: string, theme: MarkdownTheme, options: {
   let listType: 'ul' | 'ol' = 'ul';
   let currentQuote: string[] = [];
   let isInQuote = false;
+
+  // Get the appropriate code theme for this markdown theme
+  const codeTheme = getCodeTheme(theme);
 
   const flushTable = (index: number) => {
     if (currentTable.length > 0) {
@@ -180,7 +220,7 @@ const parseMarkdown = (markdown: string, theme: MarkdownTheme, options: {
           <div key={i} className={theme.styles.codeBlock}>
             <SyntaxHighlighter 
               language={codeLanguage} 
-              style={dracula}
+              style={codeTheme}
               className="rounded-lg"
             >
               {currentCodeBlock}
