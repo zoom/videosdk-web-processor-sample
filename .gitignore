@@ -5,3 +5,4 @@ lib/node_modules
 wmlib/node_modules
 wmlib/dist
 wmlib/.parcel-cache
+sample/src/config/dev.ts
