@@ -12,6 +12,9 @@ import {
   Mic,
   Music,
   ScreenShare,
+  Sparkles,
+  User,
+  Sticker,
 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
@@ -46,6 +49,30 @@ const videoProcessors: Processor[] = [
     description: "Simulate a gaming live stream with a facecam overlay.",
     icon: <Gamepad className="w-6 h-6" />,
     isInDevelopment: false,
+  },
+  {
+    id: "smart-virtual-background",
+    name: "Smart Virtual Background",
+    description:
+      "Use AI technology to dynamically generate personalized background images based on text descriptions, achieving intelligent virtual background replacement.",
+    icon: <Sparkles className="w-6 h-6" />,
+    isInDevelopment: true,
+  },
+  {
+    id: "video-business-card",
+    name: "Video Business Card",
+    description:
+      "Overlay dynamic business card information on the video screen, supporting personal information, company logo, and multiple theme styles, perfectly showcasing professional image.",
+    icon: <User className="w-6 h-6" />,
+    isInDevelopment: true,
+  },
+  {
+    id: "video-stickers",
+    name: "Video Stickers",
+    description:
+      "Add interesting stickers and decorative elements to the video, supporting static stickers and face tracking, making the video more lively and interesting.",
+    icon: <Sticker className="w-6 h-6" />,
+    isInDevelopment: true,
   },
 ];
 
@@ -121,8 +148,10 @@ function MediaProcessors() {
 
   // Get initial tab from URL params, default to "video"
   const getInitialTab = (): Tab => {
-    const tabFromUrl = searchParams.get('tab') as Tab;
-    return tabFromUrl && ['video', 'audio', 'sharing'].includes(tabFromUrl) ? tabFromUrl : 'video';
+    const tabFromUrl = searchParams.get("tab") as Tab;
+    return tabFromUrl && ["video", "audio", "sharing"].includes(tabFromUrl)
+      ? tabFromUrl
+      : "video";
   };
 
   const [activeTab, setActiveTab] = useState<Tab>(getInitialTab);

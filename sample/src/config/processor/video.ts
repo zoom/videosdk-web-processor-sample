@@ -1,6 +1,24 @@
-import { Box, Binary, Gauge, Cpu, Video, Globe, Smartphone, Monitor, Apple, Laptop, SmartphoneIcon } from "lucide-react";
+import {
+  Box,
+  Binary,
+  Gauge,
+  Cpu,
+  Video,
+  Globe,
+  Smartphone,
+  Monitor,
+  Apple,
+  Laptop,
+  SmartphoneIcon,
+  Sparkles,
+  User,
+  Sticker,
+} from "lucide-react";
 import DualMask from "../../components/parameters/DualMask";
 import WatermarkEffect from "../../components/parameters/WatermarkEffect";
+import SmartVirtualBackground from "../../components/parameters/SmartVirtualBackground";
+import VideoBusinessCard from "../../components/parameters/VideoBusinessCard";
+import VideoStickers from "../../components/parameters/VideoStickers";
 import { ProcessorConfig } from "../../index-types";
 import GamerLive from "../../components/parameters/GamerLive";
 
@@ -23,7 +41,7 @@ const videoConfig: Record<string, ProcessorConfig> = {
       { icon: Smartphone, text: "Android" },
       { icon: Apple, text: "iOS" },
       { icon: Laptop, text: "Windows" },
-      { icon: Monitor, text: "Mac" }
+      { icon: Monitor, text: "Mac" },
     ],
     implementation: {
       usage: `
@@ -124,7 +142,7 @@ const videoConfig: Record<string, ProcessorConfig> = {
     platforms: [
       { icon: Globe, text: "Web" },
       { icon: Smartphone, text: "Android" },
-      { icon: Apple, text: "iOS" }
+      { icon: Apple, text: "iOS" },
     ],
     implementation: {
       usage: `
@@ -224,7 +242,7 @@ const videoConfig: Record<string, ProcessorConfig> = {
     platforms: [
       { icon: Globe, text: "Web" },
       { icon: Smartphone, text: "Android" },
-      { icon: Apple, text: "iOS" }
+      { icon: Apple, text: "iOS" },
     ],
     implementation: {
       usage: `
@@ -246,72 +264,359 @@ const videoConfig: Record<string, ProcessorConfig> = {
     },
     isInDevelopment: true,
   },
-  "demo-editor": {
-    id: "demo-editor",
-    url: baseUrl + "/demo-editor.js", // placeholder URL
+
+  "smart-virtual-background": {
+    id: "smart-virtual-background",
+    url: baseUrl + "/smart-virtual-background.js",
     options: {},
-    render: () => null, // no special parameters needed
-    name: "Markdown Editor Demo",
+    render: SmartVirtualBackground,
+    name: "智能虚拟背景",
     description:
-      "Demonstration of the online markdown editing functionality. Try the 'Edit Documentation' feature!",
-    features: [{ icon: Video, text: "documentation tool" }],
+      "通过AI技术根据文本描述动态生成个性化背景图像，实现智能虚拟背景替换功能。",
+    features: [
+      { icon: Sparkles, text: "AI生成背景" },
+      { icon: Video, text: "实时背景替换" },
+      { icon: Cpu, text: "智能抠图" },
+    ],
     platforms: [
       { icon: Globe, text: "Web" },
+      { icon: Smartphone, text: "Android" },
+      { icon: Apple, text: "iOS" },
+      { icon: Laptop, text: "Windows" },
+      { icon: Monitor, text: "Mac" },
     ],
     implementation: {
       usage: `
-          // This is a demo of the markdown editor
-          // Click 'Edit Documentation' to try it out!
-          console.log('Editor demo ready');
-        `,
-      example: `
-          // Example of using the markdown editor
-          const editor = new MarkdownEditor({
-            content: '# Hello World',
-            onSave: (content) => console.log('Saved:', content)
+          const processor: Processor = stream.createProcessor({
+            url: 'https://example.com/smart-virtual-background.js',
+            name: 'smart-virtual-background',
+            type: 'video',
+            options: {
+              backgroundType: 'ai-generated',
+              prompt: '现代办公室，柔和光线，简约风格',
+              quality: 'high',
+              enableEdgeSmoothing: true,
+            }
+          });
+
+          stream.addProcessor(processor);
+          
+          // 更新背景描述
+          processor.port.postMessage({
+            cmd: 'update_background_prompt',
+            data: '海滩日落，温暖色调'
           });
         `,
+      example: `
+          class SmartVirtualBackgroundProcessor extends VideoProcessor {
+            private backgroundImage: ImageBitmap | null = null;
+            private aiGenerator: AIBackgroundGenerator;
+            private segmentationModel: SegmentationModel;
+
+            constructor(port: MessagePort, options?: any) {
+              super(port, options);
+              
+              this.aiGenerator = new AIBackgroundGenerator();
+              this.segmentationModel = new SegmentationModel();
+
+              port.addEventListener('message', async (e) => {
+                if (e.data.cmd === 'update_background_prompt') {
+                  const backgroundImage = await this.aiGenerator.generateBackground(e.data.data);
+                  this.backgroundImage = backgroundImage;
+                } else if (e.data.cmd === 'upload_background_image') {
+                  this.backgroundImage = e.data.data;
+                }
+              });
+            }
+
+            async processFrame(input: VideoFrame, output: OffscreenCanvas) {
+              if (!this.backgroundImage) return false;
+              
+              // 使用AI模型进行前景分割
+              const mask = await this.segmentationModel.segment(input);
+              
+              // 合成背景和前景
+              const ctx = output.getContext('2d');
+              ctx.drawImage(this.backgroundImage, 0, 0, output.width, output.height);
+              ctx.globalCompositeOperation = 'source-atop';
+              ctx.drawImage(input, 0, 0, output.width, output.height);
+              
+              return true;
+            }
+          }
+
+          registerProcessor('smart-virtual-background', SmartVirtualBackgroundProcessor);
+        `,
     },
-    isInDevelopment: false,
+    isInDevelopment: true,
   },
-  "theme-demo": {
-    id: "theme-demo",
-    url: baseUrl + "/theme-demo.js", // placeholder URL
+
+  "video-business-card": {
+    id: "video-business-card",
+    url: baseUrl + "/video-business-card.js",
     options: {},
-    render: () => null, // no special parameters needed
-    name: "Theme Demo",
+    render: VideoBusinessCard,
+    name: "视频名片",
     description:
-      "Showcase the markdown theme system with live theme switching. Perfect for testing different themes!",
-    features: [{ icon: Video, text: "theme showcase" }],
+      "在视频画面上叠加动态名片信息，支持个人信息、公司Logo和多种主题样式，完美展示专业形象。",
+    features: [
+      { icon: User, text: "个人名片" },
+      { icon: Video, text: "实时叠加" },
+      { icon: Binary, text: "多种主题" },
+    ],
     platforms: [
       { icon: Globe, text: "Web" },
+      { icon: Smartphone, text: "Android" },
+      { icon: Apple, text: "iOS" },
+      { icon: Laptop, text: "Windows" },
+      { icon: Monitor, text: "Mac" },
     ],
     implementation: {
       usage: `
-          // Theme Demo Processor
-          // Use the theme selector in the toolbar to switch themes
-          const themeDemo = {
-            name: 'Theme Demo',
-            description: 'Live theme switching demonstration'
-          };
+          const processor: Processor = stream.createProcessor({
+            url: 'https://example.com/video-business-card.js',
+            name: 'video-business-card',
+            type: 'video',
+            options: {
+              position: 'bottom-right',
+              theme: 'modern',
+              opacity: 0.8,
+              size: 'medium',
+            }
+          });
+
+          stream.addProcessor(processor);
+          
+          // 更新名片信息
+          processor.port.postMessage({
+            cmd: 'update_card_info',
+            data: {
+              name: '张三',
+              title: '产品经理',
+              company: '科技有限公司',
+              email: 'zhangsan@company.com',
+              phone: '+86 138 0000 0000'
+            }
+          });
         `,
       example: `
-          // Example theme configuration
-          const customTheme = {
-            id: 'custom',
-            name: 'Custom Theme',
-            category: 'light',
-            codeTheme: 'github',
-            styles: {
-              content: 'bg-white rounded-lg p-8',
-              heading1: 'text-3xl font-bold text-blue-600',
-              // ... more styles
+          class VideoBusinessCardProcessor extends VideoProcessor {
+            private cardInfo: BusinessCardInfo;
+            private cardStyle: CardStyle;
+            private logoImage: ImageBitmap | null = null;
+
+            constructor(port: MessagePort, options?: any) {
+              super(port, options);
+              
+              this.cardInfo = {
+                name: '',
+                title: '',
+                company: '',
+                email: '',
+                phone: ''
+              };
+              
+              this.cardStyle = {
+                theme: options?.theme || 'modern',
+                position: options?.position || 'bottom-right',
+                opacity: options?.opacity || 0.8,
+                size: options?.size || 'medium'
+              };
+
+              port.addEventListener('message', (e) => {
+                if (e.data.cmd === 'update_card_info') {
+                  this.cardInfo = { ...this.cardInfo, ...e.data.data };
+                } else if (e.data.cmd === 'update_card_style') {
+                  this.cardStyle = { ...this.cardStyle, ...e.data.data };
+                } else if (e.data.cmd === 'update_logo_image') {
+                  this.logoImage = e.data.data;
+                }
+              });
             }
-          };
+
+            async processFrame(input: VideoFrame, output: OffscreenCanvas) {
+              const ctx = output.getContext('2d');
+              
+              // 绘制原始视频
+              ctx.drawImage(input, 0, 0, output.width, output.height);
+              
+              // 绘制名片
+              this.renderBusinessCard(ctx, output.width, output.height);
+              
+              return true;
+            }
+
+            private renderBusinessCard(ctx: CanvasRenderingContext2D, width: number, height: number) {
+              const cardWidth = this.getCardWidth();
+              const cardHeight = this.getCardHeight();
+              const { x, y } = this.getCardPosition(width, height, cardWidth, cardHeight);
+              
+              // 绘制名片背景
+              ctx.globalAlpha = this.cardStyle.opacity;
+              ctx.fillStyle = this.getThemeColor();
+              ctx.fillRect(x, y, cardWidth, cardHeight);
+              
+              // 绘制名片内容
+              this.renderCardContent(ctx, x, y, cardWidth, cardHeight);
+              
+              ctx.globalAlpha = 1;
+            }
+          }
+
+          registerProcessor('video-business-card', VideoBusinessCardProcessor);
         `,
     },
-    isInDevelopment: false,
-  }
+    isInDevelopment: true,
+  },
+
+  "video-stickers": {
+    id: "video-stickers",
+    url: baseUrl + "/video-stickers.js",
+    options: {
+      assetsUrlBase: baseUrl + "/assets/mediapipe",
+    },
+    render: VideoStickers,
+    name: "视频贴图",
+    description:
+      "为视频添加趣味贴纸和装饰元素，支持静态贴纸和人脸跟踪功能，让视频更加生动有趣。",
+    features: [
+      { icon: Sticker, text: "趣味贴纸" },
+      { icon: Video, text: "人脸跟踪" },
+      { icon: Sparkles, text: "动态效果" },
+    ],
+    platforms: [
+      { icon: Globe, text: "Web" },
+      { icon: Smartphone, text: "Android" },
+      { icon: Apple, text: "iOS" },
+      { icon: Laptop, text: "Windows" },
+      { icon: Monitor, text: "Mac" },
+    ],
+    implementation: {
+      usage: `
+          const processor: Processor = stream.createProcessor({
+            url: 'https://example.com/video-stickers.js',
+            name: 'video-stickers',
+            type: 'video',
+            options: {
+              assetsUrlBase: '/assets/mediapipe',
+              enableFaceTracking: true,
+              maxStickers: 10,
+            }
+          });
+
+          stream.addProcessor(processor);
+          
+          // 添加贴纸
+          processor.port.postMessage({
+            cmd: 'add_sticker',
+            data: {
+              id: 'sticker-1',
+              src: '/stickers/heart.png',
+              x: 50,
+              y: 50,
+              scale: 1,
+              rotation: 0,
+              trackFace: true
+            }
+          });
+        `,
+      example: `
+          class VideoStickersProcessor extends VideoProcessor {
+            private stickers: Map<string, StickerData> = new Map();
+            private faceDetector: FaceDetector;
+            private isTrackerInitialized = false;
+
+            constructor(port: MessagePort, options?: any) {
+              super(port, options);
+              
+              if (options?.enableFaceTracking) {
+                this.faceDetector = new FaceDetector({
+                  assetsUrlBase: options.assetsUrlBase
+                });
+              }
+
+              port.addEventListener('message', (e) => {
+                switch (e.data.cmd) {
+                  case 'add_sticker':
+                    this.stickers.set(e.data.data.id, e.data.data);
+                    break;
+                  case 'remove_sticker':
+                    this.stickers.delete(e.data.data.id);
+                    break;
+                  case 'update_sticker':
+                    const existing = this.stickers.get(e.data.data.id);
+                    if (existing) {
+                      this.stickers.set(e.data.data.id, { ...existing, ...e.data.data });
+                    }
+                    break;
+                }
+              });
+            }
+
+            async processFrame(input: VideoFrame, output: OffscreenCanvas) {
+              const ctx = output.getContext('2d');
+              
+              // 绘制原始视频
+              ctx.drawImage(input, 0, 0, output.width, output.height);
+              
+              // 检测人脸（如果启用）
+              let faceDetections = null;
+              if (this.faceDetector && !this.isTrackerInitialized) {
+                await this.faceDetector.initialize();
+                this.isTrackerInitialized = true;
+              }
+              
+              if (this.faceDetector && this.isTrackerInitialized) {
+                faceDetections = await this.faceDetector.detect(input);
+              }
+              
+              // 渲染贴纸
+              for (const sticker of this.stickers.values()) {
+                if (sticker.isActive) {
+                  this.renderSticker(ctx, sticker, faceDetections, output.width, output.height);
+                }
+              }
+              
+              return true;
+            }
+
+            private renderSticker(
+              ctx: CanvasRenderingContext2D, 
+              sticker: StickerData, 
+              faceDetections: any[], 
+              width: number, 
+              height: number
+            ) {
+              let x = (sticker.x / 100) * width;
+              let y = (sticker.y / 100) * height;
+              
+              // 人脸跟踪逻辑
+              if (sticker.trackFace && faceDetections && faceDetections.length > 0) {
+                const face = faceDetections[0];
+                x = face.boundingBox.x + face.boundingBox.width / 2;
+                y = face.boundingBox.y + face.boundingBox.height / 2;
+              }
+              
+              ctx.save();
+              ctx.translate(x, y);
+              ctx.scale(sticker.scale, sticker.scale);
+              ctx.rotate((sticker.rotation * Math.PI) / 180);
+              ctx.globalAlpha = sticker.opacity;
+              
+              // 绘制贴纸
+              if (sticker.image) {
+                ctx.drawImage(sticker.image, -sticker.image.width / 2, -sticker.image.height / 2);
+              }
+              
+              ctx.restore();
+            }
+          }
+
+          registerProcessor('video-stickers', VideoStickersProcessor);
+        `,
+    },
+    isInDevelopment: true,
+  },
 };
 
 export default videoConfig;
