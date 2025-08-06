@@ -55,6 +55,7 @@ class WatermarkProcessor extends VideoProcessor {
         watermarkHeight
       );
     }
+    this.context.globalAlpha = 1.0;
   }
 }
 
