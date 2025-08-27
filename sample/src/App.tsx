@@ -168,14 +168,11 @@ function HomePage({ loading }: { loading: boolean }) {
     <div
       className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden"
       style={{
-        backgroundImage:
-          'url("https://images.unsplash.com/photo-1509023464722-18d996393ca8?auto=format&fit=crop&q=80")',
-        backgroundSize: "cover",
-        backgroundPosition: "center",
+        background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
       }}
     >
-      {/* Overlay */}
-      <div className="absolute inset-0 bg-white bg-opacity-90"></div>
+      {/* Overlay for better readability */}
+      <div className="absolute inset-0 bg-white bg-opacity-5"></div>
 
       {/* Configuration Button - top right */}
       <div className="absolute top-4 right-4 z-20">

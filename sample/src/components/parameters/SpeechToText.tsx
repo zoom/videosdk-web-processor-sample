@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Processor } from "@zoom/videosdk";
 import { Mic, Loader2 } from "lucide-react";
 import { useAudio } from "../../hooks/useSelfAudio";
+import AudioDeviceSelector from "../AudioDeviceSelector";
 
 type ProcessorInfo = {
   processor: Processor;
@@ -15,12 +16,10 @@ function TextToSpeech({ processor }: ProcessorInfo) {
     language: "en-US",
     quality: "high",
     engine: "assemblyai",
-    deviceId: "",
     apiKey: "",
   });
 
   const { audioOn, handleToggleAudio } = useAudio();
-  const [microphoneList, setMicrophoneList] = useState<MediaDeviceInfo[]>([]);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const processorRef = useRef<Processor>();
@@ -148,25 +147,7 @@ function TextToSpeech({ processor }: ProcessorInfo) {
     animationFrameRef.current = requestAnimationFrame(animate);
   };
 
-  const getMicrophoneList = async () => {
-    try {
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const audioDevices = devices.filter(
-        (device) => device.kind === "audioinput"
-      );
-      setMicrophoneList(audioDevices);
 
-      if (!settings.deviceId && audioDevices.length > 0) {
-        handleSettingChange("deviceId", audioDevices[0].deviceId);
-      }
-    } catch (err) {
-      console.error("Error getting microphone list:", err);
-    }
-  };
-
-  useEffect(() => {
-    getMicrophoneList();
-  }, []);
 
   const clearCanvas = () => {
     const canvas = canvasRef.current;
@@ -390,31 +371,16 @@ function TextToSpeech({ processor }: ProcessorInfo) {
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold text-gray-800">Settings</h2>
         </div>
-        <div className="space-y-4">
-          {/* Microphone Selection */}
-          <div hidden>
-            <label className="text-sm font-medium text-gray-700 mb-2 block">
-              Microphone
-            </label>
-            <select
-              className="w-full p-2 border rounded-lg bg-gray-50"
-              value={settings.deviceId}
-              onChange={(e) => handleSettingChange("deviceId", e.target.value)}
-            >
-              {microphoneList.map((device) => (
-                <option key={device.deviceId} value={device.deviceId}>
-                  {device.label ||
-                    `Microphone ${device.deviceId.slice(0, 8)}...`}
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={getMicrophoneList}
-              className="mt-2 text-sm text-blue-500 hover:text-blue-600"
-            >
-              Refresh microphone list
-            </button>
-          </div>
+        <div className="space-y-6">
+          {/* Audio device selector */}
+          <AudioDeviceSelector
+            showMicrophoneSelector={true}
+            showSpeakerSelector={true}
+            disabled={isRecording}
+          />
+          
+          {/* Divider */}
+          <div className="border-t border-gray-200"></div>
 
           {/* Speech Recognition Engine */}
           <div>

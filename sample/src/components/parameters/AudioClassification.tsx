@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Processor } from "@zoom/videosdk";
 import { Play, Pause, Loader2 } from "lucide-react";
 import { useAudio } from "../../hooks/useSelfAudio";
+import AudioDeviceSelector from "../AudioDeviceSelector";
 import * as audio from "@mediapipe/tasks-audio";
 
 type ProcessorInfo = {
@@ -18,7 +19,7 @@ function AudioClassification({ processor }: ProcessorInfo) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const processorRef = useRef<Processor | undefined>();
   const audioClassifierRef = useRef<audio.AudioClassifier | null>(null);
-  const classificationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const classificationTimeoutRef = useRef<number | null>(null);
   const audioBufferRef = useRef<Float32Array[]>([]);
   const bufferSizeRef = useRef(0);
   const { audioOn, handleToggleAudio } = useAudio();
@@ -95,10 +96,10 @@ function AudioClassification({ processor }: ProcessorInfo) {
 
               // Debounce classification updates
               if (classificationTimeoutRef.current) {
-                clearTimeout(classificationTimeoutRef.current);
+                window.clearTimeout(classificationTimeoutRef.current);
               }
 
-              classificationTimeoutRef.current = setTimeout(() => {
+              classificationTimeoutRef.current = window.setTimeout(() => {
                 setClassification(categories[0].categoryName);
                 setConfidence(categories[0].score);
               }, 500); // 500ms debounce
@@ -119,7 +120,7 @@ function AudioClassification({ processor }: ProcessorInfo) {
     return () => {
       processorRef.current?.port.removeEventListener("message", handleMessage);
       if (classificationTimeoutRef.current) {
-        clearTimeout(classificationTimeoutRef.current);
+        window.clearTimeout(classificationTimeoutRef.current);
       }
     };
   }, [processor]);
@@ -264,18 +265,28 @@ function AudioClassification({ processor }: ProcessorInfo) {
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold text-gray-800">Parameters</h2>
         </div>
-        <div className="space-y-4">
-          <p className="text-gray-600">
-            Real-time audio classification using MediaPipe's YAMNet model to
-            detect:
-          </p>
-          <ul className="list-disc list-inside text-gray-600 space-y-2">
-            <li>Speech</li>
-            <li>Music</li>
-            <li>Background noise</li>
-            <li>Silence</li>
-            <li>And many more audio categories</li>
-          </ul>
+        <div className="space-y-6">
+          {/* Audio device selector */}
+          <AudioDeviceSelector
+            showMicrophoneSelector={true}
+            showSpeakerSelector={true}
+            disabled={isLoading || isPlaying}
+          />
+          
+          {/* Feature description */}
+          <div className="pt-4 border-t border-gray-200">
+            <p className="text-gray-600 mb-4">
+              Real-time audio classification using MediaPipe's YAMNet model to
+              detect:
+            </p>
+            <ul className="list-disc list-inside text-gray-600 space-y-2">
+              <li>Speech</li>
+              <li>Music</li>
+              <li>Background noise</li>
+              <li>Silence</li>
+              <li>And many more audio categories</li>
+            </ul>
+          </div>
         </div>
       </div>
     </>
