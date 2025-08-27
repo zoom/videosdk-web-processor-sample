@@ -2,6 +2,7 @@ import React, { useState, useRef, useContext, useEffect } from "react";
 import ZoomMediaContext from "../../context/media-context";
 import { Mic, Loader2 } from "lucide-react";
 import { useAudio } from "../../hooks/useSelfAudio";
+import AudioDeviceSelector from "../AudioDeviceSelector";
 
 type ProcessorInfo = {
   processor: AudioWorkletNode;
@@ -126,7 +127,8 @@ function BypassAudio({ processor }: ProcessorInfo) {
 
       // Create mono buffer
       const audioBuffer = audioContext.createBuffer(1, audioData.length, sampleRate);
-      audioBuffer.copyToChannel(audioData, 0);
+      const audioDataCopy = new Float32Array(audioData);
+      audioBuffer.copyToChannel(audioDataCopy, 0);
       
       const source = audioContext.createBufferSource();
       source.buffer = audioBuffer;
@@ -250,10 +252,23 @@ function BypassAudio({ processor }: ProcessorInfo) {
         <canvas ref={canvasRef} className="w-full h-48 bg-gray-900 rounded-lg" />
       </div>
       <div className="bg-white rounded-2xl shadow-lg p-6">
-        <h2 className="text-2xl font-bold text-gray-800">Parameters</h2>
-        <p className="text-gray-600">
-          This is an audio bypass processor. Audio passes through the processor, then plays in the BypassAudio component and displays in the waveform.
-        </p>
+        <h2 className="text-2xl font-bold text-gray-800 mb-6">Parameters</h2>
+        
+        <div className="space-y-6">
+          {/* Audio device selector */}
+          <AudioDeviceSelector
+            showMicrophoneSelector={true}
+            showSpeakerSelector={true}
+            disabled={isRecording}
+          />
+          
+          {/* Processor description */}
+          <div className="pt-4 border-t border-gray-200">
+            <p className="text-gray-600">
+              This is an audio bypass processor. Audio passes through the processor, then plays in the BypassAudio component and displays in the waveform.
+            </p>
+          </div>
+        </div>
       </div>
     </>
   );

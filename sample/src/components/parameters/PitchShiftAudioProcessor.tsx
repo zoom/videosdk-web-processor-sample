@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Mic, Loader2 } from "lucide-react";
 import { useAudio } from "../../hooks/useSelfAudio";
+import AudioDeviceSelector from "../AudioDeviceSelector";
 import { PitchShiftAudioManager } from "./pitch-shift-main-thread";
 import { Processor } from "@zoom/videosdk";
 
@@ -248,6 +249,15 @@ function PitchShiftAudioProcessor({ processor }: ProcessorInfo) {
           🎛️ Pitch Control
         </h2>
         <div className="space-y-6">
+          {/* Audio device selector */}
+          <AudioDeviceSelector
+            showMicrophoneSelector={true}
+            showSpeakerSelector={true}
+            disabled={isRecording}
+          />
+          
+          {/* Divider */}
+          <div className="border-t border-gray-200"></div>
           {/* Pitch Ratio Control */}
           <div className="flex flex-col">
             <div className="flex justify-between items-center mb-2">
