@@ -40,11 +40,11 @@ const videoConfig: Record<string, ProcessorConfig> = {
             }
           });
 
-          // 2. notify framework whether the input is processed by the processor
-          stream.addProcessor(processor);
+          // 2. notify framework whether the input is processed by the processor (async)
+          await stream.addProcessor(processor);
 
-          // 3. notify framework to remove the video processor if you don't need it anymore
-          stream.removeProcessor(processor);
+          // 3. notify framework to remove the video processor if you don't need it anymore (async)
+          await stream.removeProcessor(processor);
         `,
       example: `
         // ZoomDualMaskVideoProcessor source code
@@ -135,7 +135,7 @@ const videoConfig: Record<string, ProcessorConfig> = {
             options: {},
           });
 
-          stream.addProcessor(processor);
+          await stream.addProcessor(processor);
 
           // update ImageBitmap
           processor.port.postMessage({
@@ -240,7 +240,7 @@ const videoConfig: Record<string, ProcessorConfig> = {
             }
           });
 
-          stream.addProcessor(processor);
+          await stream.addProcessor(processor);
         `,
       example: "",
     },

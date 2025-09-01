@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Eye, BookOpen, Code, FileCode, Terminal, Globe, Smartphone, Monitor, Edit3 } from "lucide-react";
 import VideoProcessor from "./processors/VideoProcessor";
 import AudioProcessor from "./processors/AudioProcessor";
-import SharingProcessor from "./processors/SharingProcessor";
+import ShareProcessor from "./processors/ShareProcessor";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { dracula } from "react-syntax-highlighter/dist/esm/styles/prism";
 import processorConfig from "../config/processor";
@@ -90,8 +90,8 @@ function ProcessorDetail() {
         return <VideoProcessor id={id!} />;
       case "audio":
         return <AudioProcessor id={id!} />;
-      case "sharing":
-        return <SharingProcessor id={id!} />;
+      case "share":
+        return <ShareProcessor id={id!} />;
       default:
         return <div>Invalid processor type</div>;
     }

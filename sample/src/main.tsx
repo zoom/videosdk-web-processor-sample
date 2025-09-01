@@ -20,7 +20,7 @@ if (meetingArgs.web && meetingArgs.web !== '0') {
       try {
         meetingArgs[field] = b64DecodeUnicode(meetingArgs[field]);
       } catch (e) {
-        console.log('ingore base64 decode', field, meetingArgs[field]);
+        console.log('ignore base64 decode', field, meetingArgs[field]);
       }
     }
   });

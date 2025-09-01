@@ -35,11 +35,11 @@ const validateSaveRequest = (req, res, next) => {
   }
   
   // Validate processor type
-  const validTypes = ['video', 'audio', 'sharing'];
+  const validTypes = ['video', 'audio', 'share'];
   if (!validTypes.includes(processorType)) {
     return res.status(400).json({
       success: false,
-      message: 'Invalid processor type. Must be: video, audio, or sharing'
+      message: 'Invalid processor type. Must be: video, audio, or share'
     });
   }
   
@@ -126,7 +126,7 @@ router.get('/load/:type/:id', async (req, res) => {
     const { type, id } = req.params;
     
     // Validate parameters
-    const validTypes = ['video', 'audio', 'sharing'];
+    const validTypes = ['video', 'audio', 'share'];
     if (!validTypes.includes(type)) {
       return res.status(400).json({
         success: false,
@@ -209,7 +209,7 @@ router.get('/load/:type/:id', async (req, res) => {
 router.get('/list', async (req, res) => {
   try {
     const files = [];
-    const types = ['video', 'audio', 'sharing'];
+    const types = ['video', 'audio', 'share'];
     
     // Get original files
     const originalDocsPath = path.join(__dirname, '../sample/public/docs/processors');

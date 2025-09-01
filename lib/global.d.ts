@@ -245,4 +245,61 @@ declare global {
      */
     process(inputs: Array<Array<Float32Array>>, outputs: Array<Array<Float32Array>>): boolean | Promise<boolean>;
   }
+
+  /**
+   * A base class for share processors.
+   */
+  class ShareProcessor {
+    /**
+     * Constructs a new ShareProcessor.
+     *
+     * @param {MessagePort} port - The message port.
+     * @param {any} [options] - Optional options.
+     */
+    constructor(port: MessagePort, options?: any);
+
+    /**
+     * The message port to synchronize messages with the main thread.
+     */
+    port: MessagePort;
+
+    /**
+     * Optional options parameter passed when adding the processor.
+     */
+    options?: any;
+
+    /**
+     * Gets the output canvas, if called before initialized, return null.
+     *
+     * @type {OffscreenCanvas | null}
+     */
+    getOutput(): OffscreenCanvas | null;
+
+    /**
+     * The lifecycle function, called when the processor is initialized.
+     *
+     * @return {void}
+     */
+    onInit(): void;
+
+    /**
+     * The lifecycle function, called when the processor is uninitialized.
+     *
+     * @return {void}
+     */
+    onUninit(): void;
+
+    /**
+     * Processes the video frame. Draws the results on the output canvas.
+     * If don't need to draw, return false and use the original share frame.
+     *
+     * @param {VideoFrame} input - The input video frame.
+     * @param {OffscreenCanvas} output - The output canvas.
+     * @return {boolean | Promise<boolean>} A boolean or a promise that resolves to a boolean.
+     */
+    processFrame(
+      input: VideoFrame,
+      output: OffscreenCanvas
+    ): boolean | Promise<boolean>;
+  }
 }
