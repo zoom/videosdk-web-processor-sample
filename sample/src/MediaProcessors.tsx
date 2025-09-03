@@ -12,6 +12,7 @@ import {
   Mic,
   Music,
   ScreenShare,
+  CaptionsOff
 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
@@ -88,31 +89,17 @@ const audioProcessors: Processor[] = [
   },
 ];
 
-const sharingProcessors: Processor[] = [
+const shareProcessors: Processor[] = [
   {
-    id: "social-media-share",
-    name: "Social Media Share",
-    description: "Direct integration with major social platforms",
-    icon: <ScreenShare className="w-6 h-6" />,
-    isInDevelopment: true,
-  },
-  {
-    id: "link-generator",
-    name: "Link Generator",
-    description: "Create shareable links with custom parameters",
-    icon: <Link className="w-6 h-6" />,
-    isInDevelopment: true,
-  },
-  {
-    id: "embed-code",
-    name: "Embed Code",
-    description: "Generate embed codes for websites and platforms",
-    icon: <ScreenShare className="w-6 h-6" />,
-    isInDevelopment: true,
+    id: "pii-masking-share-processor",
+    name: "PII Mask Share Processor",
+    description: "Mask the PII data in the share stream.",
+    icon: <CaptionsOff className="w-6 h-6" />,
+    isInDevelopment: false,
   },
 ];
 
-type Tab = "video" | "audio" | "sharing";
+type Tab = "video" | "audio" | "share";
 
 function MediaProcessors() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -122,7 +109,7 @@ function MediaProcessors() {
   // Get initial tab from URL params, default to "video"
   const getInitialTab = (): Tab => {
     const tabFromUrl = searchParams.get('tab') as Tab;
-    return tabFromUrl && ['video', 'audio', 'sharing'].includes(tabFromUrl) ? tabFromUrl : 'video';
+    return tabFromUrl && ['video', 'audio', 'share'].includes(tabFromUrl) ? tabFromUrl : 'video';
   };
 
   const [activeTab, setActiveTab] = useState<Tab>(getInitialTab);
@@ -147,8 +134,8 @@ function MediaProcessors() {
         return videoProcessors;
       case "audio":
         return audioProcessors;
-      case "sharing":
-        return sharingProcessors;
+      case "share":
+        return shareProcessors;
     }
   };
 
@@ -189,7 +176,7 @@ function MediaProcessors() {
           {[
             { id: "video", icon: Video, label: "Video" },
             { id: "audio", icon: AudioLines, label: "Audio" },
-            { id: "sharing", icon: ScreenShare, label: "Sharing" },
+            { id: "share", icon: ScreenShare, label: "Share" },
           ].map(({ id, icon: Icon, label }) => (
             <button
               key={id}

@@ -9,6 +9,17 @@ interface UseMarkdownLoaderResult {
   source: 'server' | 'original' | 'localStorage' | null;
 }
 
+// Map processor types to their corresponding documentation directory names
+const getDocumentationPath = (processorType: string): string => {
+  const pathMapping: Record<string, string> = {
+    'share': 'sharing',
+    'video': 'video',
+    'audio': 'audio'
+  };
+  
+  return pathMapping[processorType] || processorType;
+};
+
 export function useMarkdownLoader(
   processorType: string, 
   processorId: string
@@ -25,9 +36,12 @@ export function useMarkdownLoader(
         setLoading(true);
         setError(null);
         
+        // Map processor type to documentation directory
+        const docPath = getDocumentationPath(processorType);
+        
         // Priority 1: Try to load from server API (modified version has priority)
         try {
-          const response = await fetch(`/api/docs/load/${processorType}/${processorId}`);
+          const response = await fetch(`/api/docs/load/${docPath}/${processorId}`);
           
           if (response.ok) {
             const result = await response.json();
@@ -43,7 +57,7 @@ export function useMarkdownLoader(
         }
 
         // Priority 2: Try to load from localStorage drafts
-        const savedContent = await loadMarkdownFile(processorType, processorId);
+        const savedContent = await loadMarkdownFile(docPath, processorId);
         if (savedContent) {
           setContent(savedContent);
           setVersion('modified');
@@ -52,7 +66,7 @@ export function useMarkdownLoader(
         }
 
         // Priority 3: Try to load from public directory (original file)
-        const markdownPath = `/docs/processors/${processorType}/${processorId}.md`;
+        const markdownPath = `/docs/processors/${docPath}/${processorId}.md`;
         const response = await fetch(markdownPath);
         
         if (!response.ok) {

@@ -22,8 +22,12 @@ interface MediaContext {
   selectedAudioProcessor: any;
   selectAudioProcessor: any;
   audioProcessorMapRef: any;
+  selectShareProcessor: any;
+  selectedShareProcessor: any;
+  shareProcessorMapRef: any;
   removeVideoProcessor: (mediaStream: MediaStream, name: string) => void;
   removeAudioProcessor: (mediaStream: MediaStream, name: string) => void;
+  removeShareProcessor: (mediaStream: MediaStream, name: string) => void;
 }
 
 export default React.createContext<MediaContext>(null as any);

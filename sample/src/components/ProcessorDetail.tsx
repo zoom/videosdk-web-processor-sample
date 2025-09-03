@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Eye, BookOpen, Code, FileCode, Terminal, Globe, Smartphone, Monitor, Edit3 } from "lucide-react";
 import VideoProcessor from "./processors/VideoProcessor";
 import AudioProcessor from "./processors/AudioProcessor";
-import SharingProcessor from "./processors/SharingProcessor";
+import ShareProcessor from "./processors/ShareProcessor";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { dracula } from "react-syntax-highlighter/dist/esm/styles/prism";
 import processorConfig from "../config/processor";
@@ -11,6 +11,17 @@ import MarkdownRenderer from "./MarkdownRenderer";
 import MarkdownEditor from "./MarkdownEditor";
 import { useMarkdownLoader } from "../hooks/useMarkdownLoader";
 import { saveMarkdownFile } from "../utils/markdownApi";
+
+// Map processor types to their corresponding documentation directory names
+const getDocumentationPath = (processorType: string): string => {
+  const pathMapping: Record<string, string> = {
+    'share': 'sharing',
+    'video': 'video',
+    'audio': 'audio'
+  };
+  
+  return pathMapping[processorType] || processorType;
+};
 
 function ProcessorDetail() {
   const { type, id } = useParams();
@@ -26,6 +37,9 @@ function ProcessorDetail() {
   // Load markdown documentation
   const { content: markdownContent, loading: markdownLoading, error: markdownError, version: markdownVersion, source: markdownSource } = 
     useMarkdownLoader(type || '', id || '');
+
+  // Calculate base path for images in markdown
+  const markdownBasePath = type ? `/docs/processors/${getDocumentationPath(type)}` : undefined;
 
   // Handle saving markdown
   const handleSaveMarkdown = async (content: string) => {
@@ -90,8 +104,8 @@ function ProcessorDetail() {
         return <VideoProcessor id={id!} />;
       case "audio":
         return <AudioProcessor id={id!} />;
-      case "sharing":
-        return <SharingProcessor id={id!} />;
+      case "share":
+        return <ShareProcessor id={id!} />;
       default:
         return <div>Invalid processor type</div>;
     }
@@ -210,9 +224,13 @@ function ProcessorDetail() {
 
       {/* Main Content */}
       <div className="container mx-auto px-4 py-8">
-        {activeTab === "preview" ? (
-          renderProcessor()
-        ) : activeTab === "edit" && isEditing ? (
+        {/* Preview Tab - always keep mounted, control through show/hide */}
+        <div style={{ display: activeTab === "preview" ? "block" : "none" }}>
+          {renderProcessor()}
+        </div>
+
+        {/* Edit Tab */}
+        {activeTab === "edit" && isEditing && (
           <MarkdownEditor
             initialContent={markdownContent || '# New Documentation\n\nStart writing your documentation here...'}
             processorType={type || ''}
@@ -222,7 +240,10 @@ function ProcessorDetail() {
             enableAutoSave={true}
             autoSaveInterval={30000}
           />
-        ) : (
+        )}
+
+        {/* How to Use Tab */}
+        {activeTab === "howto" && (
           <MarkdownRenderer
             content={markdownContent}
             loading={markdownLoading}
@@ -233,6 +254,7 @@ function ProcessorDetail() {
             enableFootnotes={true}
             enableThemes={true}
             defaultTheme="default"
+            basePath={markdownBasePath}
             fallbackContent={
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {details.implementation?.setup && (

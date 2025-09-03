@@ -22,6 +22,7 @@ interface MarkdownRendererProps {
   enableFootnotes?: boolean;
   enableThemes?: boolean;
   defaultTheme?: string;
+  basePath?: string; // Base path for resolving relative image paths
 }
 
 interface TocItem {
@@ -70,6 +71,7 @@ const parseMarkdown = (markdown: string, theme: MarkdownTheme, options: {
   enableToc?: boolean;
   enableFootnotes?: boolean;
   enableImageZoom?: boolean;
+  basePath?: string;
 } = {}) => {
   const lines = markdown.split('\n');
   const elements: React.ReactNode[] = [];
@@ -165,15 +167,93 @@ const parseMarkdown = (markdown: string, theme: MarkdownTheme, options: {
       });
     }
     
-    // Handle links: [text](url)
-    text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, `<a href="$2" target="_blank" rel="noopener noreferrer" class="${theme.styles.link}">$1</a>`);
+    // Handle images: ![alt](src) - MUST BE BEFORE LINKS!
+    const resolveImagePath = (imageSrc: string): string => {
+      // If it's already an absolute URL or data URL, return as-is
+      if (imageSrc.startsWith('http://') || imageSrc.startsWith('https://') || imageSrc.startsWith('data:') || imageSrc.startsWith('/')) {
+        return imageSrc;
+      }
+      
+      // If basePath is provided and imageSrc is relative, resolve it
+      if (options.basePath) {
+        // Remove leading ./ if present
+        const cleanSrc = imageSrc.replace(/^\.\//, '');
+        const resolvedPath = `${options.basePath}/${cleanSrc}`;
+        return resolvedPath;
+      }
+      
+      return imageSrc;
+    };
+
+    // Enhanced image processing with size/style support
+    // Supports: ![alt](src){width=300px height=200px class=custom-class}
+    // Also supports: ![alt](src "title"){width=50%}
+    const parseImageAttributes = (attributeStr: string) => {
+      const attributes: Record<string, string> = {};
+      
+      // Parse {key=value key=value} format
+      const attrRegex = /(\w+)=([^}\s]+)/g;
+      let match;
+      while ((match = attrRegex.exec(attributeStr)) !== null) {
+        attributes[match[1]] = match[2];
+      }
+      
+      return attributes;
+    };
+
+    const buildImageTag = (resolvedSrc: string, alt: string, title: string = '', attributes: Record<string, string> = {}) => {
+      let className = theme.styles.image;
+      let styleStr = '';
+      let otherAttrs = '';
+      
+      // Handle custom class
+      if (attributes.class) {
+        className += ` ${attributes.class}`;
+      }
+      
+      // Handle width and height
+      const styleAttributes = [];
+      if (attributes.width) {
+        styleAttributes.push(`width: ${attributes.width}`);
+      }
+      if (attributes.height) {
+        styleAttributes.push(`height: ${attributes.height}`);
+      }
+      if (attributes.maxWidth || attributes['max-width']) {
+        styleAttributes.push(`max-width: ${attributes.maxWidth || attributes['max-width']}`);
+      }
+      if (attributes.maxHeight || attributes['max-height']) {
+        styleAttributes.push(`max-height: ${attributes.maxHeight || attributes['max-height']}`);
+      }
+      
+      if (styleAttributes.length > 0) {
+        styleStr = ` style="${styleAttributes.join('; ')}"`;
+      }
+      
+      // Handle other attributes like id
+      if (attributes.id) {
+        otherAttrs += ` id="${attributes.id}"`;
+      }
+      
+      const titleAttr = title ? ` title="${title}"` : '';
+      
+      if (options.enableImageZoom) {
+        return `<img src="${resolvedSrc}" alt="${alt}"${titleAttr} class="${className} cursor-pointer hover:shadow-lg transition-shadow"${styleStr}${otherAttrs} onclick="window.openImageModal && window.openImageModal('${resolvedSrc}', '${alt}')" />`;
+      } else {
+        return `<img src="${resolvedSrc}" alt="${alt}"${titleAttr} class="${className}"${styleStr}${otherAttrs} />`;
+      }
+    };
+
+    // Enhanced regex to capture optional title and attributes
+    // Matches: ![alt](src), ![alt](src "title"), ![alt](src){attrs}, ![alt](src "title"){attrs}
+    text = text.replace(/!\[([^\]]*)\]\(([^)]+?)(?:\s+"([^"]*)")?\)(?:\{([^}]+)\})?/g, (match, alt, src, title, attrs) => {
+      const resolvedSrc = resolveImagePath(src);
+      const attributes = attrs ? parseImageAttributes(attrs) : {};
+      return buildImageTag(resolvedSrc, alt, title, attributes);
+    });
     
-    // Handle images: ![alt](src)
-    if (options.enableImageZoom) {
-      text = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, `<img src="$2" alt="$1" class="${theme.styles.image} cursor-pointer hover:shadow-lg transition-shadow" onclick="window.openImageModal && window.openImageModal('$2', '$1')" />`);
-    } else {
-      text = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, `<img src="$2" alt="$1" class="${theme.styles.image}" />`);
-    }
+    // Handle links: [text](url) - MUST BE AFTER IMAGES!
+    text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, `<a href="$2" target="_blank" rel="noopener noreferrer" class="${theme.styles.link}">$1</a>`);
     
     // Handle bold: **text**
     text = text.replace(/\*\*([^*]+)\*\*/g, `<strong class="${theme.styles.bold}">$1</strong>`);
@@ -387,7 +467,8 @@ export default function MarkdownRenderer({
   enableImageZoom = true,
   enableFootnotes = true,
   enableThemes = true,
-  defaultTheme = 'default'
+  defaultTheme = 'default',
+  basePath
 }: MarkdownRendererProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [showToc, setShowToc] = useState(false);
@@ -513,7 +594,8 @@ export default function MarkdownRenderer({
   const parseResult = parseMarkdown(content, theme, {
     enableToc,
     enableFootnotes,
-    enableImageZoom
+    enableImageZoom,
+    basePath
   });
 
   const { elements, tocItems } = parseResult;

@@ -1,9 +1,9 @@
 import video from "./video";
 import audio from "./audio";
-import sharing from "./sharing";
+import share from "./share";
 
 export default {
   video,
   audio,
-  sharing,
+  share,
 };

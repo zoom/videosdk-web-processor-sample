@@ -402,6 +402,13 @@ function App(props: AppProps) {
     removeAudioProcessor,
   ] = useSelectProcessor("audio");
 
+  const [
+    selectedShareProcessor,
+    selectShareProcessor,
+    shareProcessorMapRef,
+    removeShareProcessor,
+  ] = useSelectProcessor("share");
+
   const mediaContext = useMemo(
     () => ({
       ...mediaState,
@@ -412,17 +419,28 @@ function App(props: AppProps) {
       selectedAudioProcessor,
       selectAudioProcessor,
       audioProcessorMapRef,
+      selectShareProcessor,
+      selectedShareProcessor,
+      shareProcessorMapRef,
       removeVideoProcessor,
       removeAudioProcessor,
+      removeShareProcessor,
     }),
     [
       mediaState,
       mediaStream,
+      selectedVideoProcessor,
+      videoProcessorMapRef,
       selectedAudioProcessor,
+      audioProcessorMapRef,
+      selectedShareProcessor,
+      shareProcessorMapRef,
       selectVideoProcessor,
       selectAudioProcessor,
+      selectShareProcessor,
       removeVideoProcessor,
       removeAudioProcessor,
+      removeShareProcessor,
     ]
   );
   const galleryViewWithoutSAB =

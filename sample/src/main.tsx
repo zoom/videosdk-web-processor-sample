@@ -6,6 +6,7 @@ import App from './App';
 import { devConfig } from './config/dev';
 import ZoomContext from './context/zoom-context';
 import './index.css';
+import './styles/markdown-image-sizes.css';
 import { loadConfigFromStorage } from './utils/sessionConfig';
 
 let meetingArgs: any = Object.fromEntries(new URLSearchParams(location.search));
@@ -20,7 +21,7 @@ if (meetingArgs.web && meetingArgs.web !== '0') {
       try {
         meetingArgs[field] = b64DecodeUnicode(meetingArgs[field]);
       } catch (e) {
-        console.log('ingore base64 decode', field, meetingArgs[field]);
+        console.log('ignore base64 decode', field, meetingArgs[field]);
       }
     }
   });
