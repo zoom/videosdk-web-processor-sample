@@ -12,6 +12,17 @@ import MarkdownEditor from "./MarkdownEditor";
 import { useMarkdownLoader } from "../hooks/useMarkdownLoader";
 import { saveMarkdownFile } from "../utils/markdownApi";
 
+// Map processor types to their corresponding documentation directory names
+const getDocumentationPath = (processorType: string): string => {
+  const pathMapping: Record<string, string> = {
+    'share': 'sharing',
+    'video': 'video',
+    'audio': 'audio'
+  };
+  
+  return pathMapping[processorType] || processorType;
+};
+
 function ProcessorDetail() {
   const { type, id } = useParams();
   const navigate = useNavigate();
@@ -26,6 +37,9 @@ function ProcessorDetail() {
   // Load markdown documentation
   const { content: markdownContent, loading: markdownLoading, error: markdownError, version: markdownVersion, source: markdownSource } = 
     useMarkdownLoader(type || '', id || '');
+
+  // Calculate base path for images in markdown
+  const markdownBasePath = type ? `/docs/processors/${getDocumentationPath(type)}` : undefined;
 
   // Handle saving markdown
   const handleSaveMarkdown = async (content: string) => {
@@ -210,9 +224,13 @@ function ProcessorDetail() {
 
       {/* Main Content */}
       <div className="container mx-auto px-4 py-8">
-        {activeTab === "preview" ? (
-          renderProcessor()
-        ) : activeTab === "edit" && isEditing ? (
+        {/* Preview Tab - always keep mounted, control through show/hide */}
+        <div style={{ display: activeTab === "preview" ? "block" : "none" }}>
+          {renderProcessor()}
+        </div>
+
+        {/* Edit Tab */}
+        {activeTab === "edit" && isEditing && (
           <MarkdownEditor
             initialContent={markdownContent || '# New Documentation\n\nStart writing your documentation here...'}
             processorType={type || ''}
@@ -222,7 +240,10 @@ function ProcessorDetail() {
             enableAutoSave={true}
             autoSaveInterval={30000}
           />
-        ) : (
+        )}
+
+        {/* How to Use Tab */}
+        {activeTab === "howto" && (
           <MarkdownRenderer
             content={markdownContent}
             loading={markdownLoading}
@@ -233,6 +254,7 @@ function ProcessorDetail() {
             enableFootnotes={true}
             enableThemes={true}
             defaultTheme="default"
+            basePath={markdownBasePath}
             fallbackContent={
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {details.implementation?.setup && (

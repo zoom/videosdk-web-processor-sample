@@ -63,6 +63,8 @@ function PiiMaskProcessor({
   // Start processor
   const startProcessor = async () => {
     try {
+      let currentProcessor = processorRef.current;
+      
       // If processor hasn't been created yet, create it first
       if (!processorCreated && createProcessor) {
         console.log("Creating processor before starting...");
@@ -71,11 +73,11 @@ function PiiMaskProcessor({
           console.error("Failed to create processor");
           return;
         }
-        // Wait for processorRef to update
-        await new Promise((resolve) => setTimeout(resolve, 200));
+        // Use the newly created processor directly
+        currentProcessor = newProcessor;
       }
 
-      if (!processorRef.current) {
+      if (!currentProcessor) {
         console.error("Processor not available");
         return;
       }
@@ -87,14 +89,11 @@ function PiiMaskProcessor({
 
       // Send initial configuration to processor and ensure message is sent successfully
       try {
-        processorRef.current.port.postMessage({
+        currentProcessor.port.postMessage({
           command: "update-blur-options",
           blurRegionNorm: blurRegion,
           blurRadius: blurRadius,
         });
-        
-        // Give processor some time to receive and process the message
-        await new Promise((resolve) => setTimeout(resolve, 50));
         
         setIsProcessorActive(true);
         console.log("PII mask processor started successfully");
@@ -305,31 +304,6 @@ function PiiMaskProcessor({
 
   return (
     <>
-      {/* Documentation Link Banner */}
-      <div className="mb-4 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-            <span className="text-sm font-medium text-blue-800">
-              PII Masking Share Processor
-            </span>
-          </div>
-          <a
-            href="/docs/processors/sharing/pii-masking-share-processor.md"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 hover:underline transition-colors"
-            title="View Complete Documentation"
-          >
-            <ExternalLink className="w-3 h-3" />
-            View Docs
-          </a>
-        </div>
-        <p className="text-xs text-blue-700 mt-1">
-          WebGL2-based processor for applying Gaussian blur to protect PII during screen sharing
-        </p>
-      </div>
-
       {/* PII Processor Control Area */}
       <div className="space-y-5">
         {/* Processor Title and Status */}

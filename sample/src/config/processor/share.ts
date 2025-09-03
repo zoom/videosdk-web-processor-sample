@@ -32,7 +32,6 @@ const shareConfig: Record<string, ProcessorConfig> = {
     name: "PII Mask Share Processor",
     description: "Mask the PII data in the share stream.",
     features: [
-      { icon: Shield, text: "Smart PII information detection" },
       { icon: Eye, text: "Real-time preview and masking" },
       { icon: Edit, text: "Editable masking region" },
       { icon: Lock, text: "Privacy information protection" },

@@ -6,6 +6,7 @@ import App from './App';
 import { devConfig } from './config/dev';
 import ZoomContext from './context/zoom-context';
 import './index.css';
+import './styles/markdown-image-sizes.css';
 import { loadConfigFromStorage } from './utils/sessionConfig';
 
 let meetingArgs: any = Object.fromEntries(new URLSearchParams(location.search));

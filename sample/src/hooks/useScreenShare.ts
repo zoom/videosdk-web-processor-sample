@@ -13,9 +13,9 @@ export function useScreenShare() {
         return false;
       }
       
-      // 使用Zoom SDK的屏幕共享API，根据支持情况选择video或canvas元素
+      // Use Zoom SDK screen sharing API, choose video or canvas element based on support
       if (mediaStream.isStartShareScreenWithVideoElement()) {
-        // 如果支持video元素，优先使用video元素
+        // If video element is supported, prioritize video element
         const targetElement = videoElement || document.querySelector('#my-screen-share-content-video') as HTMLVideoElement;
         if (!targetElement) {
           console.error("Video element not found for screen sharing");
@@ -25,7 +25,7 @@ export function useScreenShare() {
         await mediaStream.startShareScreen(targetElement);
         console.log("Screen sharing started with video element");
       } else {
-        // 否则使用canvas元素
+        // Otherwise use canvas element
         const targetElement = canvasElement || document.querySelector('#my-screen-share-content-canvas') as HTMLCanvasElement;
         if (!targetElement) {
           console.error("Canvas element not found for screen sharing");
@@ -51,7 +51,7 @@ export function useScreenShare() {
     try {
       if (!mediaStream) return false;
       
-      // 停止Zoom屏幕共享
+      // Stop Zoom screen sharing
       await mediaStream.stopShareScreen();
       
       setIsSharing(false);
@@ -70,12 +70,12 @@ export function useScreenShare() {
       if (!mediaStream) return false;
       
       if (isPaused) {
-        // 恢复屏幕共享
+        // Resume screen sharing
         await mediaStream.resumeShareScreen();
         setIsPaused(false);
         console.log("Screen sharing resumed");
       } else {
-        // 暂停屏幕共享
+        // Pause screen sharing
         await mediaStream.pauseShareScreen();
         setIsPaused(true);
         console.log("Screen sharing paused");

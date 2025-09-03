@@ -1,0 +1,128 @@
+/* Predefined image size classes for markdown */
+
+/* Size classes */
+.img-tiny {
+  width: 50px !important;
+  height: auto !important;
+}
+
+.img-small {
+  width: 150px !important;
+  height: auto !important;
+}
+
+.img-medium {
+  width: 300px !important;
+  height: auto !important;
+}
+
+.img-large {
+  width: 500px !important;
+  height: auto !important;
+}
+
+.img-xl {
+  width: 700px !important;
+  height: auto !important;
+}
+
+.img-full {
+  width: 100% !important;
+  height: auto !important;
+}
+
+/* Responsive percentage widths */
+.img-25 {
+  width: 25% !important;
+  height: auto !important;
+}
+
+.img-50 {
+  width: 50% !important;
+  height: auto !important;
+}
+
+.img-75 {
+  width: 75% !important;
+  height: auto !important;
+}
+
+/* Height classes */
+.img-h-100 {
+  height: 100px !important;
+  width: auto !important;
+}
+
+.img-h-200 {
+  height: 200px !important;
+  width: auto !important;
+}
+
+.img-h-300 {
+  height: 300px !important;
+  width: auto !important;
+}
+
+/* Aspect ratio classes */
+.img-square {
+  aspect-ratio: 1 / 1 !important;
+  object-fit: cover !important;
+}
+
+.img-rectangle {
+  aspect-ratio: 16 / 9 !important;
+  object-fit: cover !important;
+}
+
+.img-portrait {
+  aspect-ratio: 3 / 4 !important;
+  object-fit: cover !important;
+}
+
+/* Alignment classes */
+.img-left {
+  float: left !important;
+  margin: 0 1rem 1rem 0 !important;
+}
+
+.img-right {
+  float: right !important;
+  margin: 0 0 1rem 1rem !important;
+}
+
+.img-center {
+  display: block !important;
+  margin: 1rem auto !important;
+}
+
+/* Border and shadow variants */
+.img-bordered {
+  border: 2px solid #e5e7eb !important;
+}
+
+.img-rounded {
+  border-radius: 0.5rem !important;
+}
+
+.img-circle {
+  border-radius: 50% !important;
+}
+
+.img-shadow {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+}
+
+.img-shadow-lg {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Hover effects */
+.img-hover-scale:hover {
+  transform: scale(1.05) !important;
+  transition: transform 0.2s ease-in-out !important;
+}
+
+.img-hover-opacity:hover {
+  opacity: 0.8 !important;
+  transition: opacity 0.2s ease-in-out !important;
+}

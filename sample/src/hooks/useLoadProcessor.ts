@@ -58,7 +58,6 @@ export function useLoadProcessor(id: string, type: "audio" | "video" | "share") 
     }[type];
   }, [type]);
 
-  // 创建处理器的函数（延迟创建）
   const createProcessor = useCallback(async () => {
     if (!mediaStream || processorCreated) return null;
     const c = processorConfig[type][id];

@@ -9,7 +9,7 @@ interface ShareProcessorProps {
 }
 
 function ShareProcessor({ id }: ShareProcessorProps) {
-  // 屏幕共享功能
+  // Screen sharing functionality
   const { 
     isSharing, 
     isPaused, 
@@ -18,7 +18,7 @@ function ShareProcessor({ id }: ShareProcessorProps) {
     pauseScreenShare 
   } = useScreenShare();
   
-  // 预览状态
+  // Preview state
   const [showPreview, setShowPreview] = useState(false);
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const previewVideoRef = useRef<HTMLVideoElement>(null);
@@ -28,18 +28,18 @@ function ShareProcessor({ id }: ShareProcessorProps) {
   const removeProcessor = (processorResult && 'removeProcessor' in processorResult) ? processorResult.removeProcessor : null;
   const processorCreated = (processorResult && 'processorCreated' in processorResult) ? processorResult.processorCreated : true;
 
-  // 获取参数组件
+  // Get parameter component
   const Cmp = useMemo(() => {
     return shareProcessorConfig[id]?.render || null;
   }, [id]);
 
-  // 处理开始屏幕共享的逻辑
+  // Handle screen share start logic
   const handleStartScreenShare = async () => {
     const success = await startScreenShare(previewVideoRef.current || undefined, previewCanvasRef.current || undefined);
     return success;
   };
 
-  // 处理停止屏幕共享的额外逻辑
+  // Handle screen share stop with additional logic
   const handleStopScreenShare = async () => {
     const success = await stopScreenShare();
     if (success) {
@@ -47,7 +47,7 @@ function ShareProcessor({ id }: ShareProcessorProps) {
     }
   };
 
-  // 切换效果预览 - 控制canvas效果层的显示/隐藏
+  // Toggle effects preview - control canvas effects layer visibility
   const togglePreview = () => {
     setShowPreview(!showPreview);
     if (!showPreview && isSharing) {
@@ -55,18 +55,18 @@ function ShareProcessor({ id }: ShareProcessorProps) {
     }
   };
 
-  // 屏幕共享状态变化监听 - Zoom SDK会自动处理video元素的内容
+  // Screen sharing state change listener - Zoom SDK automatically handles video element content
   useEffect(() => {
     if (!isSharing && previewVideoRef.current) {
-      // 当停止共享时，清空video元素
+      // Clear video element when sharing stops
       previewVideoRef.current.srcObject = null;
     }
   }, [isSharing]);
 
-  // 开始预览捕获 - Canvas现在主要用于处理器效果叠加
+  // Start preview capture - Canvas is now mainly used for processor effects overlay
   const startPreviewCapture = async () => {
-    // Canvas现在主要由处理器参数组件使用
-    // Video元素直接显示原始屏幕共享流
+    // Canvas is now primarily used by processor parameter components
+    // Video element directly displays original screen sharing stream
     console.log('Preview capture started - video element will show the stream');
   };
 
@@ -74,7 +74,7 @@ function ShareProcessor({ id }: ShareProcessorProps) {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       {/* Left Side - Preview Section */}
       <div className="lg:col-span-2">
-        {/* 预览区域 - 始终显示 */}
+        {/* Preview area - always visible */}
         <div className="bg-white rounded-2xl shadow-lg p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-2xl font-bold text-gray-800">Screen Share Preview</h2>
@@ -99,7 +99,7 @@ function ShareProcessor({ id }: ShareProcessorProps) {
           </div>
           
           <div className="relative">
-            {/* Video预览 - 显示原始屏幕共享流 */}
+            {/* Video preview - displays original screen sharing stream */}
             <video
               id="my-screen-share-content-video"
               ref={previewVideoRef}
@@ -110,7 +110,7 @@ function ShareProcessor({ id }: ShareProcessorProps) {
               style={{ display: isSharing ? 'block' : 'none' }}
             />
             
-            {/* Canvas预览 - 用于处理器效果叠加 */}
+            {/* Canvas preview - for processor effects overlay */}
             <canvas
               id="my-screen-share-content-canvas"
               ref={previewCanvasRef}
@@ -123,7 +123,7 @@ function ShareProcessor({ id }: ShareProcessorProps) {
               }}
             />
             
-            {/* 占位符 - 当没有屏幕共享时显示 */}
+            {/* Placeholder - displayed when no screen sharing */}
             {!isSharing && (
               <div className="w-full aspect-video flex items-center justify-center bg-gray-900 rounded-lg border relative">
                 <div className="text-center text-gray-400">
@@ -132,13 +132,13 @@ function ShareProcessor({ id }: ShareProcessorProps) {
                   <p className="text-sm opacity-75">Start screen sharing to see content here</p>
                 </div>
                 
-                {/* 预览区域边框装饰 */}
+                {/* Preview area border decoration */}
                 <div className="absolute inset-4 border-2 border-dashed border-gray-600 rounded-lg opacity-30"></div>
               </div>
             )}
           </div>
           
-          {/* 状态信息 */}
+          {/* Status information */}
           <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
             <div className="flex items-center gap-2">
               <div className={`w-2 h-2 rounded-full ${
@@ -156,16 +156,16 @@ function ShareProcessor({ id }: ShareProcessorProps) {
 
       {/* Right Side - Elegant Control Panel */}
       <div className="space-y-6">
-        {/* 主控制面板 */}
+        {/* Main control panel */}
         <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-          {/* 面板标题 */}
+          {/* Panel title */}
           <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4">
             <h2 className="text-xl font-bold text-white">Control Panel</h2>
             <p className="text-blue-100 text-sm mt-1">Manage screen sharing and processing</p>
           </div>
           
           <div className="p-6 space-y-6">
-            {/* 当前状态卡片 */}
+            {/* Current status card */}
             <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -192,7 +192,7 @@ function ShareProcessor({ id }: ShareProcessorProps) {
               </div>
             </div>
             
-            {/* 屏幕共享控制组 */}
+            {/* Screen sharing control group */}
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <Monitor className="w-5 h-5 text-gray-600" />
@@ -276,7 +276,7 @@ function ShareProcessor({ id }: ShareProcessorProps) {
               </div>
             </div>
             
-            {/* 优雅分隔线 */}
+            {/* Elegant separator */}
             <div className="relative py-2">
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-gray-200"></div>
@@ -288,7 +288,7 @@ function ShareProcessor({ id }: ShareProcessorProps) {
               </div>
             </div>
             
-            {/* 处理器参数部分 */}
+            {/* Processor parameters section */}
             {Cmp ? (
               <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                 <Cmp 
