@@ -2,6 +2,7 @@ import React, { useState, useRef, useContext, useEffect } from "react";
 import ZoomMediaContext from "../../context/media-context";
 import { Mic, Loader2, Upload, Play, Download } from "lucide-react";
 import { useAudio } from "../../hooks/useSelfAudio";
+import AudioDeviceSelector from "../AudioDeviceSelector";
 import { Processor } from "@zoom/videosdk";
 
 type ProcessorInfo = {
@@ -515,7 +516,19 @@ function LocalRecording({ processor }: ProcessorInfo) {
         <audio ref={audioRef} style={{ display: "none" }} />
       </div>
       <div className="bg-white rounded-2xl shadow-lg p-6">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">Parameters</h2>
+        <h2 className="text-2xl font-bold text-gray-800 mb-6">Parameters</h2>
+        
+        {/* Audio device selector */}
+        <div className="mb-6">
+          <AudioDeviceSelector
+            showMicrophoneSelector={true}
+            showSpeakerSelector={true}
+            disabled={isRecording}
+          />
+        </div>
+        
+        {/* Divider */}
+        <div className="border-t border-gray-200 mb-4"></div>
 
         {/* sample rate selection */}
         <div className="mb-4">
