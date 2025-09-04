@@ -15,43 +15,92 @@ export function useAudioDevices() {
 
   const { mediaStream } = useContext(ZoomMediaContext);
 
+  // Custom implementation to get microphone list
+  const getMicList = async (): Promise<AudioDevice[]> => {
+    try {
+      // Request permission to access media devices
+      let stream: MediaStream | null = null;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (permissionError) {
+        console.warn(
+          "Microphone permission denied, trying to get devices without labels:",
+          permissionError
+        );
+      }
+
+      // Get all media devices
+      const devices = await navigator.mediaDevices.enumerateDevices();
+
+      // Filter audio input devices (microphones)
+      const microphones = devices
+        .filter((device) => device.kind === "audioinput")
+        .map((device) => ({
+          deviceId: device.deviceId,
+          label: device.label || `Microphone ${device.deviceId.slice(0, 8)}...`,
+        }));
+
+      // Clean up the stream if we created one
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+
+      console.log("Found microphones:", microphones);
+      return microphones;
+    } catch (error) {
+      console.error("Failed to get microphone list:", error);
+      return [];
+    }
+  };
+
+  // Custom implementation to get speaker list
+  const getSpeakerList = async (): Promise<AudioDevice[]> => {
+    try {
+      // Get all media devices
+      const devices = await navigator.mediaDevices.enumerateDevices();
+
+      // Filter audio output devices (speakers)
+      const speakers = devices
+        .filter((device) => device.kind === "audiooutput")
+        .map((device) => ({
+          deviceId: device.deviceId,
+          label: device.label || `Speaker ${device.deviceId.slice(0, 8)}...`,
+        }));
+
+      console.log("Found speakers:", speakers);
+      return speakers;
+    } catch (error) {
+      console.error("Failed to get speaker list:", error);
+      return [];
+    }
+  };
+
   // Get device list
   const refreshDevices = async () => {
-    if (!mediaStream) return;
-
     try {
       setIsLoading(true);
-      
-      // Get microphone list
-      const micList = mediaStream.getMicList();
-      const formattedMicList: AudioDevice[] = micList.map((mic: any) => ({
-        deviceId: mic.deviceId,
-        label: mic.label || `Microphone ${mic.deviceId.slice(0, 8)}...`
-      }));
-      setMicrophones(formattedMicList);
 
-      // Get speaker list
-      const speakerList = mediaStream.getSpeakerList();
-      const formattedSpeakerList: AudioDevice[] = speakerList.map((speaker: any) => ({
-        deviceId: speaker.deviceId,
-        label: speaker.label || `Speaker ${speaker.deviceId.slice(0, 8)}...`
-      }));
-      setSpeakers(formattedSpeakerList);
+      // Get microphone list using custom implementation
+      const micList = await getMicList();
+      setMicrophones(micList);
+
+      // Get speaker list using custom implementation
+      const speakerList = await getSpeakerList();
+      setSpeakers(speakerList);
 
       // Set default devices if none selected
-      if (!selectedMicrophoneId && formattedMicList.length > 0) {
-        setSelectedMicrophoneId(formattedMicList[0].deviceId);
+      if (!selectedMicrophoneId && micList.length > 0) {
+        setSelectedMicrophoneId(micList[0].deviceId);
       }
-      
-      if (!selectedSpeakerId && formattedSpeakerList.length > 0) {
-        setSelectedSpeakerId(formattedSpeakerList[0].deviceId);
+
+      if (!selectedSpeakerId && speakerList.length > 0) {
+        setSelectedSpeakerId(speakerList[0].deviceId);
       }
-      
-      console.log("Retrieved device lists:", { 
-        microphones: formattedMicList.length, 
-        speakers: formattedSpeakerList.length 
+
+      console.log("Retrieved device lists:", {
+        microphones: micList.length,
+        speakers: speakerList.length,
       });
-      
     } catch (error) {
       console.error("Failed to get audio device list:", error);
     } finally {
@@ -89,11 +138,28 @@ export function useAudioDevices() {
     }
   };
 
-  // Get device list on initialization
+  // Get device list on initialization and listen for device changes
   useEffect(() => {
     if (mediaStream) {
       refreshDevices();
     }
+
+    // Listen for device changes (plugging/unplugging devices)
+    const handleDeviceChange = () => {
+      console.log("Audio device change detected, refreshing device list...");
+      refreshDevices();
+    };
+
+    // Add event listener for device changes
+    navigator.mediaDevices.addEventListener("devicechange", handleDeviceChange);
+
+    // Cleanup event listener
+    return () => {
+      navigator.mediaDevices.removeEventListener(
+        "devicechange",
+        handleDeviceChange
+      );
+    };
   }, [mediaStream]);
 
   return {
@@ -105,5 +171,8 @@ export function useAudioDevices() {
     refreshDevices,
     switchMicrophone,
     switchSpeaker,
+    // Export custom device list functions
+    getMicList,
+    getSpeakerList,
   };
 }

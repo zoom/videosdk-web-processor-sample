@@ -19,7 +19,18 @@ function LocalRecording({ processor }: ProcessorInfo) {
   const [remainingTime, setRemainingTime] = useState(0);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const { audioOn, isMuted, handleToggleAudio, handleMuteAudio } = useAudio();
+  const {
+    audioOn,
+    isMuted,
+    originalSoundEnabled,
+    stereoEnabled,
+    hifiEnabled,
+    handleToggleAudio,
+    handleMuteAudio,
+    handleToggleOriginalSound,
+    handleToggleStereo,
+    handleToggleHifi,
+  } = useAudio();
   const sampleRate = 48000;
   const processorRef = useRef<Processor>();
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -61,7 +72,7 @@ function LocalRecording({ processor }: ProcessorInfo) {
 
               // create the URL (will be created in the useEffect)
               console.log("Recording completed and audio blob created");
-              
+
               // Auto-upload if URL is provided
               if (uploadUrl.trim()) {
                 console.log("Auto-uploading recorded file...");
@@ -232,7 +243,8 @@ function LocalRecording({ processor }: ProcessorInfo) {
       URL.revokeObjectURL(downloadUrl);
     } catch (error) {
       console.error("Download failed:", error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
       alert(`Download failed: ${errorMessage}`);
     } finally {
       setIsComposing(false);
@@ -252,14 +264,14 @@ function LocalRecording({ processor }: ProcessorInfo) {
 
       // Upload to server
       const formData = new FormData();
-      formData.append('file', audioBlob, filename);
-      formData.append('sampleRate', selectedSampleRate.toString());
-      formData.append('format', selectedFormat);
-      formData.append('timestamp', timestamp);
+      formData.append("file", audioBlob, filename);
+      formData.append("sampleRate", selectedSampleRate.toString());
+      formData.append("format", selectedFormat);
+      formData.append("timestamp", timestamp);
 
-      console.log('Starting auto-upload to:', uploadUrl);
+      console.log("Starting auto-upload to:", uploadUrl);
       const response = await fetch(uploadUrl, {
-        method: 'POST',
+        method: "POST",
         body: formData,
       });
 
@@ -268,13 +280,14 @@ function LocalRecording({ processor }: ProcessorInfo) {
       }
 
       const result = await response.json();
-      console.log('Auto-upload completed successfully:', result);
-      
+      console.log("Auto-upload completed successfully:", result);
+
       // Show success notification
-      alert('Recording uploaded successfully!');
+      alert("Recording uploaded successfully!");
     } catch (error) {
       console.error("Auto-upload failed:", error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
       alert(`Auto-upload failed: ${errorMessage}`);
     } finally {
       setIsAutoUploading(false);
@@ -298,13 +311,13 @@ function LocalRecording({ processor }: ProcessorInfo) {
 
       // Upload to server
       const formData = new FormData();
-      formData.append('file', recordedBlob, filename);
-      formData.append('sampleRate', selectedSampleRate.toString());
-      formData.append('format', selectedFormat);
-      formData.append('timestamp', timestamp);
+      formData.append("file", recordedBlob, filename);
+      formData.append("sampleRate", selectedSampleRate.toString());
+      formData.append("format", selectedFormat);
+      formData.append("timestamp", timestamp);
 
       const response = await fetch(uploadUrl, {
-        method: 'POST',
+        method: "POST",
         body: formData,
       });
 
@@ -312,7 +325,7 @@ function LocalRecording({ processor }: ProcessorInfo) {
         throw new Error(`Upload failed: ${response.statusText}`);
       }
 
-      console.log('File uploaded successfully');
+      console.log("File uploaded successfully");
 
       // simulate the composing progress
       await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -322,7 +335,8 @@ function LocalRecording({ processor }: ProcessorInfo) {
       setComposingProgress(100);
     } catch (error) {
       console.error("Upload failed:", error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
       alert(`Upload failed: ${errorMessage}`);
     } finally {
       setIsComposing(false);
@@ -465,9 +479,36 @@ function LocalRecording({ processor }: ProcessorInfo) {
     <>
       <div className="lg:col-span-2 bg-white rounded-2xl shadow-lg p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold text-gray-800">
-            LocalRecording Processor
-          </h2>
+          <div className="flex items-center space-x-3">
+            <h2 className="text-2xl font-bold text-gray-800">
+              LocalRecording Processor
+            </h2>
+            {/* Audio Status Indicators */}
+            <div className="flex space-x-2">
+              {originalSoundEnabled && (
+                <div className="flex items-center space-x-1 px-2 py-1 bg-blue-100 rounded-full">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                  <span className="text-xs text-blue-700 font-medium">
+                    Original
+                    {stereoEnabled && " • Stereo"}
+                    {hifiEnabled && " • Hi-Fi"}
+                  </span>
+                </div>
+              )}
+              {audioOn && (
+                <div className="flex items-center space-x-1 px-2 py-1 bg-green-100 rounded-full">
+                  <div
+                    className={`w-2 h-2 rounded-full ${
+                      isMuted ? "bg-yellow-500" : "bg-green-500"
+                    }`}
+                  ></div>
+                  <span className="text-xs text-green-700 font-medium">
+                    {isMuted ? "Muted" : "Audio On"}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
           <div className="flex space-x-2">
             <button
               className={`p-2 rounded-lg transition-colors ${
@@ -502,13 +543,15 @@ function LocalRecording({ processor }: ProcessorInfo) {
           ref={canvasRef}
           className="w-full h-48 bg-gray-900 rounded-lg"
         />
-        
+
         {/* Auto-upload status indicator */}
         {isAutoUploading && (
           <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <div className="flex items-center space-x-3">
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-              <span className="text-blue-700 font-medium">Auto-uploading recording...</span>
+              <span className="text-blue-700 font-medium">
+                Auto-uploading recording...
+              </span>
             </div>
           </div>
         )}
@@ -516,8 +559,8 @@ function LocalRecording({ processor }: ProcessorInfo) {
         <audio ref={audioRef} style={{ display: "none" }} />
       </div>
       <div className="bg-white rounded-2xl shadow-lg p-6">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6">Parameters</h2>
-        
+        <h2 className="text-2xl font-bold text-gray-800 mb-6">Control Panel</h2>
+
         {/* Audio device selector */}
         <div className="mb-6">
           <AudioDeviceSelector
@@ -526,7 +569,113 @@ function LocalRecording({ processor }: ProcessorInfo) {
             disabled={isRecording}
           />
         </div>
-        
+
+        {/* Original Sound Settings */}
+        <div className="mb-6">
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
+            <h3 className="text-lg font-medium text-gray-800 mb-4 flex items-center">
+              <span className="text-blue-600 mr-2">🎵</span>
+              Original Sound Settings
+            </h3>
+
+            {/* Main Original Sound Switch */}
+            <div className="mb-4">
+              <label className="flex items-center space-x-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={originalSoundEnabled}
+                  onChange={(e) => handleToggleOriginalSound(e.target.checked)}
+                  disabled={isRecording}
+                  className="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                />
+                <span className="text-sm font-medium text-gray-800">
+                  Enable Original Sound
+                </span>
+                {originalSoundEnabled && (
+                  <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full font-medium">
+                    Active
+                  </span>
+                )}
+              </label>
+              <p className="text-xs text-gray-600 mt-2 ml-8">
+                Preserves original audio quality without automatic noise
+                suppression and audio processing
+              </p>
+            </div>
+
+            {/* Sub-options for Original Sound */}
+            <div
+              className={`transition-all duration-300 ${
+                originalSoundEnabled
+                  ? "opacity-100 max-h-96"
+                  : "opacity-50 max-h-0 overflow-hidden"
+              }`}
+            >
+              {originalSoundEnabled && (
+                <div className="ml-8 space-y-3 border-l-2 border-blue-300 pl-4 bg-white bg-opacity-50 rounded-r-lg p-3">
+                  <div className="text-xs text-blue-700 font-medium uppercase tracking-wide mb-2">
+                    Advanced Options
+                  </div>
+
+                  <div>
+                    <label className="flex items-center space-x-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={stereoEnabled}
+                        onChange={(e) => handleToggleStereo(e.target.checked)}
+                        disabled={isRecording || !originalSoundEnabled}
+                        className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                      />
+                      <span className="text-sm text-gray-700 flex items-center">
+                        Stereo Audio
+                        {stereoEnabled && (
+                          <span className="ml-2 text-xs text-blue-600">●</span>
+                        )}
+                      </span>
+                    </label>
+                    <p className="text-xs text-gray-500 mt-1 ml-7">
+                      Captures and transmits left/right channel audio separately
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="flex items-center space-x-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={hifiEnabled}
+                        onChange={(e) => handleToggleHifi(e.target.checked)}
+                        disabled={isRecording || !originalSoundEnabled}
+                        className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                      />
+                      <span className="text-sm text-gray-700 flex items-center">
+                        Hi-Fi Audio
+                        {hifiEnabled && (
+                          <span className="ml-2 text-xs text-blue-600">●</span>
+                        )}
+                      </span>
+                    </label>
+                    <p className="text-xs text-gray-500 mt-1 ml-7">
+                      Enables high-fidelity audio with enhanced quality and
+                      wider frequency range
+                    </p>
+                  </div>
+
+                  {(stereoEnabled || hifiEnabled) && (
+                    <div className="mt-3 p-2 bg-blue-50 border-l-4 border-blue-400 rounded">
+                      <p className="text-xs text-blue-700">
+                        <strong>Note:</strong> These settings will take effect
+                        when audio is started or restarted.
+                        {audioOn &&
+                          " Audio is currently active - settings applied dynamically."}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* Divider */}
         <div className="border-t border-gray-200 mb-4"></div>
 
@@ -614,7 +763,8 @@ function LocalRecording({ processor }: ProcessorInfo) {
             disabled={isRecording}
           />
           <div className="text-sm text-gray-500 mt-1">
-            If provided, recording will be automatically uploaded after completion
+            If provided, recording will be automatically uploaded after
+            completion
           </div>
         </div>
 
@@ -665,7 +815,9 @@ function LocalRecording({ processor }: ProcessorInfo) {
 
           <button
             onClick={handleUpload}
-            disabled={!audioUrl || !uploadUrl.trim() || isRecording || isComposing}
+            disabled={
+              !audioUrl || !uploadUrl.trim() || isRecording || isComposing
+            }
             className={`flex-1 py-2 px-4 rounded-md flex justify-center items-center space-x-2 ${
               audioUrl && uploadUrl.trim() && !isRecording && !isComposing
                 ? "bg-blue-600 hover:bg-blue-700 text-white"
