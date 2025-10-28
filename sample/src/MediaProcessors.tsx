@@ -12,7 +12,8 @@ import {
   Mic,
   Music,
   ScreenShare,
-  CaptionsOff
+  CaptionsOff,
+  VideoIcon,
 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
@@ -46,6 +47,14 @@ const videoProcessors: Processor[] = [
     name: "Gamer Live",
     description: "Simulate a gaming live stream with a facecam overlay.",
     icon: <Gamepad className="w-6 h-6" />,
+    isInDevelopment: false,
+  },
+  {
+    id: "video-local-recording",
+    name: "Video Local Recording",
+    description:
+      "Record video stream locally in the browser using WebCodecs API with configurable resolution and bitrate.",
+    icon: <VideoIcon className="w-6 h-6" />,
     isInDevelopment: false,
   },
 ];
@@ -108,8 +117,10 @@ function MediaProcessors() {
 
   // Get initial tab from URL params, default to "video"
   const getInitialTab = (): Tab => {
-    const tabFromUrl = searchParams.get('tab') as Tab;
-    return tabFromUrl && ['video', 'audio', 'share'].includes(tabFromUrl) ? tabFromUrl : 'video';
+    const tabFromUrl = searchParams.get("tab") as Tab;
+    return tabFromUrl && ["video", "audio", "share"].includes(tabFromUrl)
+      ? tabFromUrl
+      : "video";
   };
 
   const [activeTab, setActiveTab] = useState<Tab>(getInitialTab);

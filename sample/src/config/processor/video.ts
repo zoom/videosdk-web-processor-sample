@@ -1,8 +1,9 @@
-import { Box, Binary, Gauge, Cpu, Video, Globe, Smartphone, Monitor, Apple, Laptop, SmartphoneIcon } from "lucide-react";
+import { Box, Binary, Gauge, Cpu, Video, Globe, Smartphone, Monitor, Apple, Laptop, SmartphoneIcon, VideoIcon } from "lucide-react";
 import DualMask from "../../components/parameters/DualMask";
 import WatermarkEffect from "../../components/parameters/WatermarkEffect";
 import { ProcessorConfig } from "../../index-types";
 import GamerLive from "../../components/parameters/GamerLive";
+import VideoLocalRecording from "../../components/parameters/VideoLocalRecording";
 
 const baseUrl = window.origin;
 
@@ -308,6 +309,194 @@ const videoConfig: Record<string, ProcessorConfig> = {
               // ... more styles
             }
           };
+        `,
+    },
+    isInDevelopment: false,
+  },
+  "video-local-recording": {
+    id: "video-local-recording",
+    url: baseUrl + "/video-local-recording.js",
+    options: {},
+    render: VideoLocalRecording,
+    name: "Video Local Recording",
+    description:
+      "Record video stream locally in the browser using WebCodecs API. Supports VP8/VP9 encoding and WebM container format with configurable resolution, framerate, and bitrate.",
+    features: [{ icon: Video, text: "video pre-processor" }],
+    platforms: [
+      { icon: Globe, text: "Web (Chrome/Edge)" },
+    ],
+    implementation: {
+      usage: `
+          // Create video local recording processor
+          const processor: Processor = stream.createProcessor({
+            url: 'https://example.com/video-local-recording.js',
+            name: 'video-local-recording',
+            type: 'video',
+            options: {},
+          });
+
+          // Add processor to stream
+          await stream.addProcessor(processor);
+
+          // Start recording
+          processor.port.postMessage({
+            command: 'start',
+            config: {
+              width: 1280,
+              height: 720,
+              framerate: 30,
+              bitrate: 2000000, // 2 Mbps
+              codec: 'vp8', // or 'vp9'
+              maxDuration: 300, // 5 minutes
+            }
+          });
+
+          // Stop recording
+          processor.port.postMessage({
+            command: 'stop'
+          });
+
+          // Listen for encoded video data
+          processor.port.onmessage = (event) => {
+            if (event.data.type === 'encoding') {
+              const videoBuffer = event.data.buffer;
+              const metadata = event.data.metadata;
+              // Handle the recorded video
+            }
+          };
+        `,
+      example: `
+          import { Muxer, ArrayBufferTarget } from 'webm-muxer';
+
+          class VideoLocalRecording extends VideoProcessor {
+            private isRecording: boolean = false;
+            private videoEncoder: VideoEncoder | null = null;
+            private muxer: Muxer<ArrayBufferTarget> | null = null;
+            private frameCount: number = 0;
+            private config = {
+              width: 1280,
+              height: 720,
+              framerate: 30,
+              bitrate: 2_000_000,
+              codec: 'vp8',
+            };
+
+            constructor(port: MessagePort, options?: any) {
+              super(port, options);
+
+              port.addEventListener('message', (e) => {
+                const { command, config } = e.data;
+                if (command === 'start') {
+                  this.startRecording(config);
+                } else if (command === 'stop') {
+                  this.stopRecording();
+                }
+              });
+            }
+
+            async processFrame(input: VideoFrame, output: OffscreenCanvas) {
+              // Passthrough video
+              const ctx = output.getContext('2d');
+              if (ctx) {
+                ctx.drawImage(input, 0, 0, output.width, output.height);
+              }
+
+              // Encode frame if recording
+              if (this.isRecording && this.videoEncoder) {
+                const clonedFrame = new VideoFrame(input, {
+                  timestamp: this.frameCount * (1_000_000 / this.config.framerate),
+                });
+                
+                const keyFrame = this.frameCount % 30 === 0;
+                this.videoEncoder.encode(clonedFrame, { keyFrame });
+                clonedFrame.close();
+                this.frameCount++;
+              }
+
+              return true;
+            }
+
+            private async startRecording(config?: any) {
+              if (config) {
+                this.config = { ...this.config, ...config };
+              }
+
+              // Initialize Muxer
+              const target = new ArrayBufferTarget();
+              this.muxer = new Muxer({
+                target,
+                video: {
+                  codec: this.config.codec === 'vp9' ? 'V_VP9' : 'V_VP8',
+                  width: this.config.width,
+                  height: this.config.height,
+                  frameRate: this.config.framerate,
+                },
+              });
+
+              // Initialize VideoEncoder
+              this.videoEncoder = new VideoEncoder({
+                output: (chunk, metadata) => {
+                  if (this.muxer) {
+                    this.muxer.addVideoChunk(chunk, metadata);
+                  }
+                },
+                error: (error) => {
+                  console.error('VideoEncoder error:', error);
+                },
+              });
+
+              // Configure encoder
+              const codecString = this.config.codec === 'vp9' 
+                ? 'vp09.00.10.08' 
+                : 'vp8';
+
+              this.videoEncoder.configure({
+                codec: codecString,
+                width: this.config.width,
+                height: this.config.height,
+                bitrate: this.config.bitrate,
+                framerate: this.config.framerate,
+              });
+
+              this.isRecording = true;
+              this.frameCount = 0;
+            }
+
+            private async stopRecording() {
+              this.isRecording = false;
+
+              // Flush encoder
+              if (this.videoEncoder) {
+                await this.videoEncoder.flush();
+                this.videoEncoder.close();
+              }
+
+              // Finalize muxer
+              if (this.muxer) {
+                this.muxer.finalize();
+                const { buffer } = this.muxer.target;
+
+                // Send video buffer to main thread
+                this.port.postMessage({
+                  type: 'encoding',
+                  videoFormat: 'webm',
+                  buffer: buffer,
+                }, [buffer]);
+              }
+            }
+
+            onInit() {
+              console.log('VideoLocalRecording initialized');
+            }
+
+            onUninit() {
+              if (this.videoEncoder) {
+                this.videoEncoder.close();
+              }
+            }
+          }
+
+          registerProcessor('video-local-recording', VideoLocalRecording);
         `,
     },
     isInDevelopment: false,
