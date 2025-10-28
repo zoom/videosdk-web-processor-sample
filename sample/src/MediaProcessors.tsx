@@ -117,8 +117,10 @@ function MediaProcessors() {
 
   // Get initial tab from URL params, default to "video"
   const getInitialTab = (): Tab => {
-    const tabFromUrl = searchParams.get('tab') as Tab;
-    return tabFromUrl && ['video', 'audio', 'share'].includes(tabFromUrl) ? tabFromUrl : 'video';
+    const tabFromUrl = searchParams.get("tab") as Tab;
+    return tabFromUrl && ["video", "audio", "share"].includes(tabFromUrl)
+      ? tabFromUrl
+      : "video";
   };
 
   const [activeTab, setActiveTab] = useState<Tab>(getInitialTab);

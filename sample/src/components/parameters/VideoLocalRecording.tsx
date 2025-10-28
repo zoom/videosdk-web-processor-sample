@@ -1,5 +1,13 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Video as VideoIcon, Loader2, Download, Play, Upload, Settings } from "lucide-react";
+import {
+  Video as VideoIcon,
+  Loader2,
+  Download,
+  Play,
+  Upload,
+  Settings,
+  Square,
+} from "lucide-react";
 import { Processor } from "@zoom/videosdk";
 
 type ProcessorInfo = {
@@ -30,10 +38,12 @@ function VideoLocalRecording({ processor }: ProcessorInfo) {
   const [metadata, setMetadata] = useState<VideoRecordingMetadata | null>(null);
 
   // Configuration
-  const [resolution, setResolution] = useState<'720p' | '1080p' | '480p'>('720p');
+  const [resolution, setResolution] = useState<"720p" | "1080p" | "480p">(
+    "720p"
+  );
   const [framerate, setFramerate] = useState(30);
   const [bitrate, setBitrate] = useState(2);
-  const [codec, setCodec] = useState<'vp8' | 'vp9'>('vp8');
+  const [codec, setCodec] = useState<"vp8" | "vp9">("vp8");
   const [maxDuration, setMaxDuration] = useState(300);
 
   // Upload
@@ -52,30 +62,42 @@ function VideoLocalRecording({ processor }: ProcessorInfo) {
   useEffect(() => {
     processorRef.current = processor;
     if (processorRef.current) {
-      console.log(`VideoLocalRecording processor loaded: ${processorRef.current.name}`);
-      
+      console.log(
+        `VideoLocalRecording processor loaded: ${processorRef.current.name}`
+      );
+
       processorRef.current.port.onmessage = (event: MessageEvent) => {
         if (event.data) {
-          const { type, message, buffer, metadata: videoMetadata, videoFormat } = event.data;
-          
-          if (type === 'status') {
+          const {
+            type,
+            message,
+            buffer,
+            metadata: videoMetadata,
+            videoFormat,
+          } = event.data;
+
+          if (type === "status") {
             setStatusMessage(message);
             setErrorMessage("");
-            console.log('[VideoRecording]', message);
-          } else if (type === 'error') {
+            console.log("[VideoRecording]", message);
+          } else if (type === "error") {
             setErrorMessage(message);
             setStatusMessage("");
-            console.error('[VideoRecording]', message);
-          } else if (type === 'encoding' && buffer) {
+            console.error("[VideoRecording]", message);
+          } else if (type === "encoding" && buffer) {
             // Received encoded video data
-            console.log('[VideoRecording] Received encoded video:', videoMetadata);
-            
-            const mimeType = videoFormat === 'webm' ? 'video/webm' : 'video/mp4';
+            console.log(
+              "[VideoRecording] Received encoded video:",
+              videoMetadata
+            );
+
+            const mimeType =
+              videoFormat === "webm" ? "video/webm" : "video/mp4";
             const videoBlob = new Blob([buffer], { type: mimeType });
-            
+
             setRecordedBlob(videoBlob);
             setMetadata(videoMetadata);
-            
+
             // Auto-upload if URL is provided
             if (uploadUrl.trim()) {
               setTimeout(() => handleAutoUpload(videoBlob, videoMetadata), 100);
@@ -117,10 +139,10 @@ function VideoLocalRecording({ processor }: ProcessorInfo) {
     if (recordedBlob && recordedBlob.size > 0) {
       try {
         const url = URL.createObjectURL(recordedBlob);
-        console.log('Created video URL:', url);
+        console.log("Created video URL:", url);
         setVideoUrl(url);
       } catch (error) {
-        console.error('Error creating object URL:', error);
+        console.error("Error creating object URL:", error);
       }
     }
 
@@ -137,20 +159,20 @@ function VideoLocalRecording({ processor }: ProcessorInfo) {
       try {
         videoRef.current.src = videoUrl;
         videoRef.current.load();
-        console.log('Video URL loaded to video element');
+        console.log("Video URL loaded to video element");
       } catch (error) {
-        console.error('Error loading video:', error);
+        console.error("Error loading video:", error);
       }
     }
   }, [videoUrl]);
 
-  const getResolutionDimensions = (res: '720p' | '1080p' | '480p') => {
+  const getResolutionDimensions = (res: "720p" | "1080p" | "480p") => {
     switch (res) {
-      case '1080p':
+      case "1080p":
         return { width: 1920, height: 1080 };
-      case '720p':
+      case "720p":
         return { width: 1280, height: 720 };
-      case '480p':
+      case "480p":
         return { width: 854, height: 480 };
     }
   };
@@ -167,7 +189,7 @@ function VideoLocalRecording({ processor }: ProcessorInfo) {
 
     if (processor && processor.port) {
       processor.port.postMessage({
-        command: 'start',
+        command: "start",
         config: {
           width,
           height,
@@ -185,7 +207,7 @@ function VideoLocalRecording({ processor }: ProcessorInfo) {
 
     if (processor && processor.port) {
       processor.port.postMessage({
-        command: 'stop',
+        command: "stop",
       });
     }
   };
@@ -201,7 +223,7 @@ function VideoLocalRecording({ processor }: ProcessorInfo) {
         await videoRef.current.play();
         setIsPlaying(true);
       } catch (error) {
-        console.error('Preview playback failed:', error);
+        console.error("Preview playback failed:", error);
       }
     }
   };
@@ -211,11 +233,13 @@ function VideoLocalRecording({ processor }: ProcessorInfo) {
 
     try {
       setIsDownloading(true);
-      
-      const timestamp = new Date(metadata?.timestamp || Date.now()).toISOString().replace(/[:.]/g, '-');
+
+      const timestamp = new Date(metadata?.timestamp || Date.now())
+        .toISOString()
+        .replace(/[:.]/g, "-");
       const filename = `video-recording-${timestamp}.webm`;
       const downloadUrl = URL.createObjectURL(recordedBlob);
-      const downloadLink = document.createElement('a');
+      const downloadLink = document.createElement("a");
       downloadLink.href = downloadUrl;
       downloadLink.download = filename;
 
@@ -223,35 +247,44 @@ function VideoLocalRecording({ processor }: ProcessorInfo) {
       downloadLink.click();
       document.body.removeChild(downloadLink);
       URL.revokeObjectURL(downloadUrl);
-      
-      console.log('Video downloaded:', filename);
+
+      console.log("Video downloaded:", filename);
     } catch (error) {
-      console.error('Download failed:', error);
-      alert(`Download failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error("Download failed:", error);
+      alert(
+        `Download failed: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
     } finally {
       setIsDownloading(false);
     }
   };
 
-  const handleAutoUpload = async (videoBlob: Blob, videoMetadata: VideoRecordingMetadata) => {
+  const handleAutoUpload = async (
+    videoBlob: Blob,
+    videoMetadata: VideoRecordingMetadata
+  ) => {
     if (!videoBlob || !uploadUrl.trim()) return;
 
     try {
       setIsUploading(true);
-      const timestamp = new Date(videoMetadata.timestamp).toISOString().replace(/[:.]/g, '-');
+      const timestamp = new Date(videoMetadata.timestamp)
+        .toISOString()
+        .replace(/[:.]/g, "-");
       const filename = `video-recording-${timestamp}.webm`;
 
       const formData = new FormData();
-      formData.append('file', videoBlob, filename);
-      formData.append('width', videoMetadata.width.toString());
-      formData.append('height', videoMetadata.height.toString());
-      formData.append('framerate', videoMetadata.framerate.toString());
-      formData.append('duration', videoMetadata.duration.toString());
-      formData.append('timestamp', timestamp);
+      formData.append("file", videoBlob, filename);
+      formData.append("width", videoMetadata.width.toString());
+      formData.append("height", videoMetadata.height.toString());
+      formData.append("framerate", videoMetadata.framerate.toString());
+      formData.append("duration", videoMetadata.duration.toString());
+      formData.append("timestamp", timestamp);
 
-      console.log('Starting auto-upload to:', uploadUrl);
+      console.log("Starting auto-upload to:", uploadUrl);
       const response = await fetch(uploadUrl, {
-        method: 'POST',
+        method: "POST",
         body: formData,
       });
 
@@ -260,11 +293,12 @@ function VideoLocalRecording({ processor }: ProcessorInfo) {
       }
 
       const result = await response.json();
-      console.log('Auto-upload completed successfully:', result);
-      alert('Video uploaded successfully!');
+      console.log("Auto-upload completed successfully:", result);
+      alert("Video uploaded successfully!");
     } catch (error) {
-      console.error('Auto-upload failed:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error("Auto-upload failed:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
       alert(`Auto-upload failed: ${errorMessage}`);
     } finally {
       setIsUploading(false);
@@ -276,19 +310,21 @@ function VideoLocalRecording({ processor }: ProcessorInfo) {
 
     try {
       setIsUploading(true);
-      const timestamp = new Date(metadata.timestamp).toISOString().replace(/[:.]/g, '-');
+      const timestamp = new Date(metadata.timestamp)
+        .toISOString()
+        .replace(/[:.]/g, "-");
       const filename = `video-recording-${timestamp}.webm`;
 
       const formData = new FormData();
-      formData.append('file', recordedBlob, filename);
-      formData.append('width', metadata.width.toString());
-      formData.append('height', metadata.height.toString());
-      formData.append('framerate', metadata.framerate.toString());
-      formData.append('duration', metadata.duration.toString());
-      formData.append('timestamp', timestamp);
+      formData.append("file", recordedBlob, filename);
+      formData.append("width", metadata.width.toString());
+      formData.append("height", metadata.height.toString());
+      formData.append("framerate", metadata.framerate.toString());
+      formData.append("duration", metadata.duration.toString());
+      formData.append("timestamp", timestamp);
 
       const response = await fetch(uploadUrl, {
-        method: 'POST',
+        method: "POST",
         body: formData,
       });
 
@@ -296,11 +332,12 @@ function VideoLocalRecording({ processor }: ProcessorInfo) {
         throw new Error(`Upload failed: ${response.statusText}`);
       }
 
-      console.log('Video uploaded successfully');
-      alert('Video uploaded successfully!');
+      console.log("Video uploaded successfully");
+      alert("Video uploaded successfully!");
     } catch (error) {
-      console.error('Upload failed:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error("Upload failed:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
       alert(`Upload failed: ${errorMessage}`);
     } finally {
       setIsUploading(false);
@@ -310,7 +347,7 @@ function VideoLocalRecording({ processor }: ProcessorInfo) {
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   const formatFileSize = (bytes: number) => {
@@ -323,25 +360,60 @@ function VideoLocalRecording({ processor }: ProcessorInfo) {
     <>
       <div className="lg:col-span-2 bg-white rounded-2xl shadow-lg p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold text-gray-800">
-            Video Local Recording
-          </h2>
+          <div className="flex items-center gap-3">
+            <VideoIcon className="w-6 h-6 text-blue-600" />
+            <h2 className="text-2xl font-bold text-gray-800">
+              Video Local Recording
+            </h2>
+            <div className="flex items-center gap-2">
+              <div
+                className={`w-3 h-3 rounded-full ${
+                  isRecording
+                    ? "bg-red-500 shadow-md shadow-red-200 animate-pulse"
+                    : "bg-gray-300"
+                }`}
+              ></div>
+              <span
+                className={`text-xs font-medium ${
+                  isRecording ? "text-red-600" : "text-gray-500"
+                }`}
+              >
+                {isRecording ? "RECORDING" : "READY"}
+              </span>
+            </div>
+          </div>
           <div className="flex space-x-2 items-center">
             <button
-              className={`p-2 rounded-lg transition-colors ${
-                isRecording
-                  ? "bg-red-500 hover:bg-red-600 animate-pulse"
-                  : "bg-blue-500 hover:bg-blue-600"
+              className={`group relative overflow-hidden rounded-xl py-3 px-4 font-medium transition-all duration-300 ${
+                isUploading
+                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  : isRecording
+                  ? "bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 hover:shadow-lg hover:shadow-red-200 transform hover:-translate-y-0.5"
+                  : "bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 hover:shadow-lg hover:shadow-blue-200 transform hover:-translate-y-0.5"
               }`}
               onClick={isRecording ? stopRecording : startRecording}
               disabled={isUploading}
             >
-              <VideoIcon className="w-5 h-5 text-white" />
+              <div className="flex items-center gap-2">
+                {isRecording ? (
+                  <Square className="w-4 h-4" />
+                ) : (
+                  <VideoIcon className="w-4 h-4" />
+                )}
+                <span>
+                  {isRecording ? "Stop Recording" : "Start Recording"}
+                </span>
+              </div>
+              {!isUploading && (
+                <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity"></div>
+              )}
             </button>
             {isRecording && (
-              <div className="bg-gray-700 text-white px-3 py-1 rounded flex items-center space-x-2">
+              <div className="bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg flex items-center space-x-2">
                 <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                <span className="font-mono text-sm">{formatTime(recordingTime)}</span>
+                <span className="font-mono text-sm font-bold">
+                  {formatTime(recordingTime)}
+                </span>
               </div>
             )}
           </div>
@@ -382,14 +454,20 @@ function VideoLocalRecording({ processor }: ProcessorInfo) {
         {/* Metadata Display */}
         {metadata && (
           <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-            <h3 className="text-sm font-semibold text-gray-700 mb-2">Recording Info</h3>
+            <h3 className="text-sm font-semibold text-gray-700 mb-2">
+              Recording Info
+            </h3>
             <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
               <div>Duration: {metadata.duration.toFixed(2)}s</div>
               <div>Frames: {metadata.frameCount}</div>
-              <div>Resolution: {metadata.width}x{metadata.height}</div>
+              <div>
+                Resolution: {metadata.width}x{metadata.height}
+              </div>
               <div>Frame Rate: {metadata.framerate} fps</div>
               <div>File Size: {formatFileSize(metadata.fileSize)}</div>
-              <div>Bitrate: {(metadata.bitrate / 1_000_000).toFixed(2)} Mbps</div>
+              <div>
+                Bitrate: {(metadata.bitrate / 1_000_000).toFixed(2)} Mbps
+              </div>
             </div>
           </div>
         )}
@@ -399,7 +477,9 @@ function VideoLocalRecording({ processor }: ProcessorInfo) {
           <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <div className="flex items-center space-x-3">
               <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
-              <span className="text-blue-700 font-medium">Uploading video...</span>
+              <span className="text-blue-700 font-medium">
+                Uploading video...
+              </span>
             </div>
           </div>
         )}
@@ -410,13 +490,22 @@ function VideoLocalRecording({ processor }: ProcessorInfo) {
 
         {/* Resolution */}
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Resolution
-          </label>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-sm font-medium text-gray-700">
+              Resolution
+            </label>
+            <span className="bg-gradient-to-r from-blue-500 to-purple-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+              {resolution}
+            </span>
+          </div>
           <select
             value={resolution}
             onChange={(e) => setResolution(e.target.value as any)}
-            className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+            className={`w-full p-3 rounded-lg border transition-all duration-300 ${
+              isRecording
+                ? "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed"
+                : "bg-white border-gray-300 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-gray-400"
+            }`}
             disabled={isRecording}
           >
             <option value="480p">480p (854x480)</option>
@@ -427,13 +516,22 @@ function VideoLocalRecording({ processor }: ProcessorInfo) {
 
         {/* Frame Rate */}
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Frame Rate (fps)
-          </label>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-sm font-medium text-gray-700">
+              Frame Rate (fps)
+            </label>
+            <span className="bg-gradient-to-r from-green-500 to-blue-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+              {framerate} fps
+            </span>
+          </div>
           <select
             value={framerate}
             onChange={(e) => setFramerate(Number(e.target.value))}
-            className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+            className={`w-full p-3 rounded-lg border transition-all duration-300 ${
+              isRecording
+                ? "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed"
+                : "bg-white border-gray-300 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-gray-400"
+            }`}
             disabled={isRecording}
           >
             <option value={15}>15 fps</option>
@@ -445,9 +543,14 @@ function VideoLocalRecording({ processor }: ProcessorInfo) {
 
         {/* Bitrate */}
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Bitrate (Mbps)
-          </label>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-sm font-medium text-gray-700">
+              Bitrate (Mbps)
+            </label>
+            <span className="bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+              {bitrate} Mbps
+            </span>
+          </div>
           <input
             type="number"
             value={bitrate}
@@ -455,7 +558,11 @@ function VideoLocalRecording({ processor }: ProcessorInfo) {
             min="0.5"
             max="10"
             step="0.5"
-            className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+            className={`w-full p-3 rounded-lg border transition-all duration-300 ${
+              isRecording
+                ? "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed"
+                : "bg-white border-gray-300 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-gray-400"
+            }`}
             disabled={isRecording}
           />
           <div className="text-xs text-gray-500 mt-1">
@@ -465,13 +572,20 @@ function VideoLocalRecording({ processor }: ProcessorInfo) {
 
         {/* Codec */}
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Codec
-          </label>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-sm font-medium text-gray-700">Codec</label>
+            <span className="bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+              {codec.toUpperCase()}
+            </span>
+          </div>
           <select
             value={codec}
             onChange={(e) => setCodec(e.target.value as any)}
-            className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+            className={`w-full p-3 rounded-lg border transition-all duration-300 ${
+              isRecording
+                ? "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed"
+                : "bg-white border-gray-300 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-gray-400"
+            }`}
             disabled={isRecording}
           >
             <option value="vp8">VP8 (faster, good compatibility)</option>
@@ -481,16 +595,25 @@ function VideoLocalRecording({ processor }: ProcessorInfo) {
 
         {/* Max Duration */}
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Max Duration (seconds)
-          </label>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-sm font-medium text-gray-700">
+              Max Duration (seconds)
+            </label>
+            <span className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+              {Math.floor(maxDuration / 60)}m {maxDuration % 60}s
+            </span>
+          </div>
           <input
             type="number"
             value={maxDuration}
             onChange={(e) => setMaxDuration(Number(e.target.value))}
             min="10"
             max="3600"
-            className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+            className={`w-full p-3 rounded-lg border transition-all duration-300 ${
+              isRecording
+                ? "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed"
+                : "bg-white border-gray-300 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-gray-400"
+            }`}
             disabled={isRecording}
           />
         </div>
@@ -505,7 +628,11 @@ function VideoLocalRecording({ processor }: ProcessorInfo) {
             value={uploadUrl}
             onChange={(e) => setUploadUrl(e.target.value)}
             placeholder="http://localhost:8001/upload"
-            className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+            className={`w-full p-3 rounded-lg border transition-all duration-300 ${
+              isRecording
+                ? "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed"
+                : "bg-white border-gray-300 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-gray-400"
+            }`}
             disabled={isRecording}
           />
           <div className="text-xs text-gray-500 mt-1">
@@ -514,53 +641,70 @@ function VideoLocalRecording({ processor }: ProcessorInfo) {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex flex-col space-y-2">
+        <div className="flex flex-col space-y-3">
           <button
             onClick={handlePreview}
             disabled={!videoUrl || isRecording}
-            className={`py-2 px-4 rounded-md flex justify-center items-center space-x-2 ${
-              videoUrl && !isRecording
-                ? "bg-indigo-600 hover:bg-indigo-700 text-white"
-                : "bg-gray-300 text-gray-500 cursor-not-allowed"
+            className={`group relative overflow-hidden rounded-xl py-3 px-4 font-medium transition-all duration-300 ${
+              !videoUrl || isRecording
+                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                : "bg-gradient-to-r from-indigo-500 to-indigo-600 text-white hover:from-indigo-600 hover:to-indigo-700 hover:shadow-lg hover:shadow-indigo-200 transform hover:-translate-y-0.5"
             }`}
           >
-            <Play className="w-5 h-5" />
-            <span>{isPlaying ? "Pause" : "Preview"}</span>
+            <div className="flex items-center justify-center gap-2">
+              <Play className="w-4 h-4" />
+              <span>{isPlaying ? "Pause" : "Preview"}</span>
+            </div>
+            {videoUrl && !isRecording && (
+              <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity"></div>
+            )}
           </button>
 
           <button
             onClick={handleDownload}
             disabled={!videoUrl || isRecording || isDownloading}
-            className={`py-2 px-4 rounded-md flex justify-center items-center space-x-2 ${
-              videoUrl && !isRecording && !isDownloading
-                ? "bg-green-600 hover:bg-green-700 text-white"
-                : "bg-gray-300 text-gray-500 cursor-not-allowed"
+            className={`group relative overflow-hidden rounded-xl py-3 px-4 font-medium transition-all duration-300 ${
+              !videoUrl || isRecording || isDownloading
+                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                : "bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700 hover:shadow-lg hover:shadow-green-200 transform hover:-translate-y-0.5"
             }`}
           >
-            {isDownloading ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span>Downloading...</span>
-              </>
-            ) : (
-              <>
-                <Download className="w-5 h-5" />
-                <span>Download</span>
-              </>
+            <div className="flex items-center justify-center gap-2">
+              {isDownloading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Downloading...</span>
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4" />
+                  <span>Download</span>
+                </>
+              )}
+            </div>
+            {videoUrl && !isRecording && !isDownloading && (
+              <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity"></div>
             )}
           </button>
 
           <button
             onClick={handleUpload}
-            disabled={!videoUrl || !uploadUrl.trim() || isRecording || isUploading}
-            className={`py-2 px-4 rounded-md flex justify-center items-center space-x-2 ${
-              videoUrl && uploadUrl.trim() && !isRecording && !isUploading
-                ? "bg-blue-600 hover:bg-blue-700 text-white"
-                : "bg-gray-300 text-gray-500 cursor-not-allowed"
+            disabled={
+              !videoUrl || !uploadUrl.trim() || isRecording || isUploading
+            }
+            className={`group relative overflow-hidden rounded-xl py-3 px-4 font-medium transition-all duration-300 ${
+              !videoUrl || !uploadUrl.trim() || isRecording || isUploading
+                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                : "bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 hover:shadow-lg hover:shadow-blue-200 transform hover:-translate-y-0.5"
             }`}
           >
-            <Upload className="w-5 h-5" />
-            <span>Upload</span>
+            <div className="flex items-center justify-center gap-2">
+              <Upload className="w-4 h-4" />
+              <span>Upload</span>
+            </div>
+            {videoUrl && uploadUrl.trim() && !isRecording && !isUploading && (
+              <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity"></div>
+            )}
           </button>
         </div>
       </div>
@@ -569,4 +713,3 @@ function VideoLocalRecording({ processor }: ProcessorInfo) {
 }
 
 export default VideoLocalRecording;
-
