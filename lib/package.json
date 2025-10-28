@@ -15,7 +15,8 @@
     "@breezystack/lamejs": "^1.2.7",
     "@mediapipe/selfie_segmentation": "^0.1.1675465747",
     "@mediapipe/tasks-vision": "^0.10.19",
-    "@zoom/web-media-lib": "../wmlib"
+    "@zoom/web-media-lib": "../wmlib",
+    "webm-muxer": "^5.1.4"
   },
   "devDependencies": {
     "@babel/core": "7.0.0",
