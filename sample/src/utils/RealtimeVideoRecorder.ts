@@ -415,16 +415,77 @@ export class RealtimeVideoRecorder {
   }
 
   /**
-   * Setup real-time playback using blob URLs for segments
-   * Note: MediaSource Extensions requires complete WebM segments,
-   * so we use blob URLs instead for simpler real-time playback
+   * Check if MediaSource is active and ready
+   */
+  isMediaSourceActive(): boolean {
+    return !!(this.mediaSource && this.sourceBuffer && this.mediaSource.readyState === 'open');
+  }
+
+  /**
+   * Setup real-time playback using MediaSource API for progressive segment loading
+   * This allows accumulating segments and seeking through them
    */
   async setupPlayback(videoElement: HTMLVideoElement): Promise<void> {
     this.videoElement = videoElement;
-    // Initialize with empty video - will be updated when segments arrive
-    videoElement.src = '';
-    videoElement.load();
-    console.log('Playback setup completed - will use blob URLs for segments');
+
+    return new Promise((resolve, reject) => {
+      try {
+        // Check if MediaSource is supported
+        if (!window.MediaSource) {
+          console.warn('MediaSource API not supported, falling back to blob URL mode');
+          videoElement.src = '';
+          videoElement.load();
+          resolve();
+          return;
+        }
+
+        // Create MediaSource
+        this.mediaSource = new MediaSource();
+        videoElement.src = URL.createObjectURL(this.mediaSource);
+
+        this.mediaSource.addEventListener('sourceopen', () => {
+          try {
+            if (!this.mediaSource) return;
+
+            // Add SourceBuffer for WebM/VP8 or VP9
+            const mimeType = 'video/webm; codecs="vp8"';
+            
+            if (!MediaSource.isTypeSupported(mimeType)) {
+              console.error('MIME type not supported:', mimeType);
+              reject(new Error(`MIME type ${mimeType} not supported`));
+              return;
+            }
+
+            this.sourceBuffer = this.mediaSource.addSourceBuffer(mimeType);
+            
+            // Handle update end for continuous playback
+            this.sourceBuffer.addEventListener('updateend', () => {
+              // If video is paused and has content, start playing
+              if (this.videoElement && this.videoElement.paused && this.videoElement.buffered.length > 0) {
+                this.videoElement.play().catch((error) => {
+                  console.log('Auto-play prevented:', error);
+                });
+              }
+            });
+
+            console.log('MediaSource playback setup completed');
+            resolve();
+          } catch (error) {
+            reject(error);
+          }
+        });
+
+        this.mediaSource.addEventListener('sourceended', () => {
+          console.log('MediaSource ended');
+        });
+
+        this.mediaSource.addEventListener('sourceclose', () => {
+          console.log('MediaSource closed');
+        });
+      } catch (error) {
+        reject(error);
+      }
+    });
   }
 
   /**
@@ -455,28 +516,126 @@ export class RealtimeVideoRecorder {
   }
 
   /**
-   * Set video element source to a segment blob URL
+   * Append segment to SourceBuffer for continuous playback
+   * This allows accumulating all segments and seeking through them
    */
   playSegment(blob: Blob): void {
-    if (!this.videoElement) return;
+    if (!this.videoElement) {
+      console.error('playSegment: videoElement is null');
+      return;
+    }
+
+    console.log(`playSegment called with blob size: ${blob.size}, mediaSource: ${!!this.mediaSource}, sourceBuffer: ${!!this.sourceBuffer}`);
 
     try {
-      const blobUrl = URL.createObjectURL(blob);
-      this.videoElement.src = blobUrl;
-      this.videoElement.load();
-      
-      // Auto-play if possible
-      this.videoElement.play().catch((error) => {
-        console.log('Auto-play prevented:', error);
-      });
+      // If MediaSource is available, append to SourceBuffer
+      if (this.mediaSource && this.sourceBuffer) {
+        console.log(`MediaSource state: ${this.mediaSource.readyState}, SourceBuffer updating: ${this.sourceBuffer.updating}`);
+        // Check if SourceBuffer is ready
+        if (this.sourceBuffer.updating) {
+          console.warn('SourceBuffer is updating, queuing segment');
+          // Queue the segment to be added after current update completes
+          const handleUpdateEnd = () => {
+            this.sourceBuffer?.removeEventListener('updateend', handleUpdateEnd);
+            this.appendSegmentToSourceBuffer(blob);
+          };
+          this.sourceBuffer.addEventListener('updateend', handleUpdateEnd);
+          return;
+        }
 
-      // Cleanup previous blob URL
-      if (this.videoElement.dataset.prevBlobUrl) {
-        URL.revokeObjectURL(this.videoElement.dataset.prevBlobUrl);
+        this.appendSegmentToSourceBuffer(blob);
+      } else {
+        // Fallback to blob URL mode (old behavior)
+        console.warn(`MediaSource not available (mediaSource: ${!!this.mediaSource}, sourceBuffer: ${!!this.sourceBuffer}), using fallback blob URL mode`);
+        const blobUrl = URL.createObjectURL(blob);
+        this.videoElement.src = blobUrl;
+        this.videoElement.load();
+        
+        // Auto-play if possible
+        this.videoElement.play().catch((error) => {
+          console.log('Auto-play prevented:', error);
+        });
+
+        // Cleanup previous blob URL
+        if (this.videoElement.dataset.prevBlobUrl) {
+          URL.revokeObjectURL(this.videoElement.dataset.prevBlobUrl);
+        }
+        this.videoElement.dataset.prevBlobUrl = blobUrl;
       }
-      this.videoElement.dataset.prevBlobUrl = blobUrl;
     } catch (error) {
       console.error('Error playing segment:', error);
+    }
+  }
+
+  /**
+   * Helper method to append segment data to SourceBuffer
+   */
+  private async appendSegmentToSourceBuffer(blob: Blob): Promise<void> {
+    if (!this.sourceBuffer || !this.mediaSource) return;
+
+    try {
+      const arrayBuffer = await blob.arrayBuffer();
+      
+      // Append the segment data
+      this.sourceBuffer.appendBuffer(arrayBuffer);
+      console.log(`Appended segment to SourceBuffer: ${arrayBuffer.byteLength} bytes`);
+      
+      // Log video state after append
+      if (this.videoElement) {
+        setTimeout(() => {
+          // Check after a short delay to allow buffer update
+          if (this.videoElement) {
+            const duration = this.videoElement.duration;
+            const buffered = this.videoElement.buffered;
+            const bufferedRanges = [];
+            for (let i = 0; i < buffered.length; i++) {
+              bufferedRanges.push(`[${buffered.start(i).toFixed(2)}s - ${buffered.end(i).toFixed(2)}s]`);
+            }
+            console.log(`Video state: duration=${duration.toFixed(2)}s, currentTime=${this.videoElement.currentTime.toFixed(2)}s, buffered=${bufferedRanges.join(', ')}`);
+          }
+        }, 100);
+      }
+    } catch (error) {
+      console.error('Error appending segment to SourceBuffer:', error);
+      
+      // If error is due to quota exceeded, try to remove old buffered data
+      if (error instanceof Error && error.name === 'QuotaExceededError') {
+        this.cleanupOldBuffers();
+        // Try again after cleanup
+        try {
+          const arrayBuffer = await blob.arrayBuffer();
+          this.sourceBuffer.appendBuffer(arrayBuffer);
+        } catch (retryError) {
+          console.error('Failed to append segment after cleanup:', retryError);
+        }
+      }
+    }
+  }
+
+  /**
+   * Remove old buffered data to free up memory
+   * Keeps the last 30 seconds of content
+   */
+  private cleanupOldBuffers(): void {
+    if (!this.sourceBuffer || !this.videoElement || this.sourceBuffer.updating) return;
+
+    try {
+      const currentTime = this.videoElement.currentTime;
+      const buffered = this.sourceBuffer.buffered;
+      
+      // Remove segments that are more than 30 seconds behind current playback position
+      for (let i = 0; i < buffered.length; i++) {
+        const start = buffered.start(i);
+        const end = buffered.end(i);
+        
+        if (end < currentTime - 30) {
+          console.log(`Removing old buffer: ${start}s to ${end}s`);
+          this.sourceBuffer.remove(start, end);
+          break; // Only remove one range at a time
+        }
+      }
+    } catch (error) {
+      console.error('Error cleaning up old buffers:', error);
     }
   }
 
@@ -484,18 +643,38 @@ export class RealtimeVideoRecorder {
    * Cleanup playback resources
    */
   cleanupPlayback(): void {
-    if (this.videoElement) {
-      // Cleanup blob URLs
-      if (this.videoElement.dataset.prevBlobUrl) {
-        URL.revokeObjectURL(this.videoElement.dataset.prevBlobUrl);
-        delete this.videoElement.dataset.prevBlobUrl;
+    try {
+      // End MediaSource if it's open
+      if (this.mediaSource && this.mediaSource.readyState === 'open') {
+        try {
+          this.mediaSource.endOfStream();
+        } catch (error) {
+          console.warn('Error ending MediaSource:', error);
+        }
       }
-      this.videoElement.src = '';
-      this.videoElement = null;
-    }
 
-    this.mediaSource = null;
-    this.sourceBuffer = null;
+      if (this.videoElement) {
+        // Cleanup blob URLs
+        if (this.videoElement.dataset.prevBlobUrl) {
+          URL.revokeObjectURL(this.videoElement.dataset.prevBlobUrl);
+          delete this.videoElement.dataset.prevBlobUrl;
+        }
+        
+        // Revoke MediaSource URL if present
+        if (this.videoElement.src && this.videoElement.src.startsWith('blob:')) {
+          URL.revokeObjectURL(this.videoElement.src);
+        }
+        
+        this.videoElement.removeAttribute('src');
+        this.videoElement.load();
+        this.videoElement = null;
+      }
+
+      this.sourceBuffer = null;
+      this.mediaSource = null;
+    } catch (error) {
+      console.error('Error during playback cleanup:', error);
+    }
   }
 }
 

@@ -9,6 +9,7 @@ import { fileURLToPath } from "url";
 
 // Import the docs routes
 import docsRouter from './routes/docs.js';
+import recordingsRouter from './routes/recordings.js';
 
 dotenv.config();
 
@@ -51,8 +52,14 @@ let uploadStats = {
 // Serve static admin UI files
 app.use('/admin', express.static(path.join(__dirname, 'admin-ui')));
 
+// Serve recorded video files
+app.use('/recordings', express.static(path.join(__dirname, 'uploads/recordings')));
+
 // Markdown docs API routes
 app.use('/api/docs', docsRouter);
+
+// Video recordings API routes
+app.use('/api/recordings', recordingsRouter);
 
 // API Routes
 app.get("/token", async (req, res) => {

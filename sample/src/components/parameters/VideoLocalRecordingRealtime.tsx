@@ -48,13 +48,21 @@ function VideoLocalRecordingRealtime({ processor }: ProcessorInfo) {
 
   // Recording state
   const [isRecording, setIsRecording] = useState(false);
+  const isRecordingRef = useRef(false); // Ref to track recording state in cleanup
   const [isPlaying, setIsPlaying] = useState(false);
   const [recordedSegments, setRecordedSegments] = useState<Blob[]>([]);
-  const [currentSegmentBlob, setCurrentSegmentBlob] = useState<Blob | null>(null);
+  const [currentSegmentBlob, setCurrentSegmentBlob] = useState<Blob | null>(
+    null
+  );
   const [metadata, setMetadata] = useState<RecordingMetadata | null>(null);
+  const [sessionId] = useState(
+    () => `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+  );
 
   // Configuration
-  const [resolution, setResolution] = useState<"720p" | "1080p" | "480p">("720p");
+  const [resolution, setResolution] = useState<"720p" | "1080p" | "480p">(
+    "720p"
+  );
   const [framerate, setFramerate] = useState(30);
   const [bitrate, setBitrate] = useState(2);
   const [codec, setCodec] = useState<"vp8" | "vp9">("vp8");
@@ -63,7 +71,8 @@ function VideoLocalRecordingRealtime({ processor }: ProcessorInfo) {
   const [enableRealtimePlayback, setEnableRealtimePlayback] = useState(true);
 
   // Upload
-  const [uploadUrl, setUploadUrl] = useState("");
+  const [uploadUrl, setUploadUrl] = useState("http://localhost:8001");
+  const uploadUrlRef = useRef("http://localhost:8001"); // Ref to always access latest uploadUrl value
   const [isUploading, setIsUploading] = useState(false);
 
   // Status
@@ -80,7 +89,7 @@ function VideoLocalRecordingRealtime({ processor }: ProcessorInfo) {
 
   useEffect(() => {
     processorRef.current = processor;
-    
+
     if (processorRef.current) {
       console.log(
         `VideoLocalRecordingRealtime processor loaded: ${processorRef.current.name}`
@@ -93,8 +102,10 @@ function VideoLocalRecordingRealtime({ processor }: ProcessorInfo) {
             // New segment created
             setRecordedSegments((prev) => [...prev, blob]);
             segmentIndexRef.current++;
-            console.log(`Segment ${segmentIndexRef.current} created: ${blob.size} bytes`);
-            
+            console.log(
+              `Segment ${segmentIndexRef.current} created: ${blob.size} bytes`
+            );
+
             // Upload segment if URL provided
             if (uploadUrl.trim()) {
               uploadSegment(blob, segmentIndexRef.current);
@@ -108,7 +119,12 @@ function VideoLocalRecordingRealtime({ processor }: ProcessorInfo) {
           setCurrentSegmentBlob(blob);
 
           // For segments, update video playback
-          if (isSegment && enableRealtimePlayback && videoRef.current && recorderRef.current) {
+          if (
+            isSegment &&
+            enableRealtimePlayback &&
+            videoRef.current &&
+            recorderRef.current
+          ) {
             recorderRef.current.playSegment(blob);
           }
         },
@@ -125,52 +141,79 @@ function VideoLocalRecordingRealtime({ processor }: ProcessorInfo) {
         segmentDuration,
       });
 
-      // Setup MediaSource for real-time playback
-      if (videoRef.current && enableRealtimePlayback) {
-        recorderRef.current.setupPlayback(videoRef.current).catch((error) => {
-          console.error('Failed to setup playback:', error);
-          setErrorMessage(`Playback setup failed: ${error.message}`);
-        });
-      }
+      // 简化方案：不使用MediaSource
+      // 使用简单的blob合并方式
+      // 点击Play时会合并所有segments并播放
 
       // Handle messages from Worker
       processorRef.current.port.onmessage = async (event: MessageEvent) => {
         if (!event.data) return;
 
-        const { type, chunk, metadata: chunkMetadata, config, message, metadata: recordingMetadata } = event.data;
+        const {
+          type,
+          chunk,
+          metadata: chunkMetadata,
+          config,
+          message,
+          metadata: recordingMetadata,
+        } = event.data;
 
         switch (type) {
-          case 'start':
-            setStatusMessage(message || 'Recording started');
+          case "start":
+            setStatusMessage(message || "Recording started");
             setErrorMessage("");
             break;
 
-          case 'segment':
+          case "segment":
             // Received complete WebM segment from Worker
             if (event.data.segment) {
               const segmentBlob = new Blob([event.data.segment], {
-                type: 'video/webm',
+                type: "video/webm",
               });
-              
+
               setRecordedSegments((prev) => [...prev, segmentBlob]);
               setCurrentSegmentBlob(segmentBlob);
-              segmentIndexRef.current = event.data.segmentIndex || recordedSegments.length;
+              segmentIndexRef.current =
+                event.data.segmentIndex || recordedSegments.length;
+              const segmentMetadata = event.data.metadata || {};
 
-              console.log(`Received segment ${segmentIndexRef.current}: ${segmentBlob.size} bytes`);
+              console.log(
+                `Received segment ${segmentIndexRef.current}: ${
+                  segmentBlob.size
+                } bytes, total segments: ${recordedSegments.length + 1}`
+              );
+              console.log(`Segment metadata:`, segmentMetadata);
 
-              // Upload segment if URL provided
-              if (uploadUrl.trim()) {
-                uploadSegment(segmentBlob, segmentIndexRef.current);
+              // Upload segment with metadata if URL provided
+              // Use ref to get the latest uploadUrl value (avoid stale closure)
+              const currentUploadUrl = uploadUrlRef.current;
+              console.log(
+                `Upload URL check: uploadUrl='${currentUploadUrl}', trimmed='${currentUploadUrl.trim()}', isEmpty=${!currentUploadUrl.trim()}`
+              );
+              if (currentUploadUrl.trim()) {
+                console.log(`✓ Upload URL is set, calling uploadSegment...`);
+                uploadSegment(
+                  segmentBlob,
+                  segmentIndexRef.current,
+                  segmentMetadata
+                );
+              } else {
+                console.warn(
+                  `⚠️ Upload URL is empty, segment will NOT be uploaded`
+                );
               }
 
-              // Update video playback if enabled
-              if (enableRealtimePlayback && videoRef.current && recorderRef.current) {
-                recorderRef.current.playSegment(segmentBlob);
-              }
+              // 简化方案：不实时播放
+              // 用户点击Play时会合并所有segments并播放
+              console.log(
+                `Segment stored. Click Play to watch all ${
+                  recordedSegments.length + 1
+                } segments combined.`
+              );
             }
             break;
 
-          case 'chunk':
+          case "chunk":
             // Legacy chunk handling (deprecated - using segments instead)
             // Keep for backwards compatibility but segments are preferred
             if (chunk && recorderRef.current) {
@@ -186,7 +229,7 @@ function VideoLocalRecordingRealtime({ processor }: ProcessorInfo) {
             }
             break;
 
-          case 'stop':
+          case "stop":
             // Worker has already created final segment and stopped
             // Just cleanup recorder state
             if (recorderRef.current) {
@@ -195,39 +238,50 @@ function VideoLocalRecordingRealtime({ processor }: ProcessorInfo) {
                 // Just cleanup, don't call stop() which expects MediaRecorder mode
                 recorderRef.current.cleanup();
               } catch (error) {
-                console.error('Error cleaning up recorder:', error);
+                console.error("Error cleaning up recorder:", error);
               }
             }
-            setStatusMessage(message || 'Recording stopped');
+            setStatusMessage(message || "Recording stopped");
             if (recordingMetadata) {
               setMetadata(recordingMetadata);
             }
             setIsRecording(false);
+            isRecordingRef.current = false; // Update ref when stopped
             break;
 
-          case 'error':
-            setErrorMessage(message || 'Unknown error');
+          case "error":
+            setErrorMessage(message || "Unknown error");
             setStatusMessage("");
             setIsRecording(false);
+            isRecordingRef.current = false; // Update ref on error
             break;
 
-          case 'status':
-            setStatusMessage(message || '');
+          case "status":
+            setStatusMessage(message || "");
             setErrorMessage("");
             break;
 
           default:
-            console.warn('Unknown message type:', type);
+            console.warn("Unknown message type:", type);
         }
       };
     }
 
     return () => {
-      if (recorderRef.current) {
+      // Cleanup only when component unmounts AND not recording
+      // Don't cleanup during recording as it will close MediaSource
+      console.log(
+        "useEffect cleanup: isRecordingRef.current =",
+        isRecordingRef.current
+      );
+      if (recorderRef.current && !isRecordingRef.current) {
+        console.log("Cleaning up playback (MediaSource will be closed)");
         recorderRef.current.cleanupPlayback();
+      } else if (isRecordingRef.current) {
+        console.log("Skipping cleanup - recording in progress");
       }
     };
-  }, [processor, uploadUrl, segmentDuration, enableRealtimePlayback]);
+  }, [processor]); // Only re-run when processor changes (which should be rare)
 
   // Recording timer
   useEffect(() => {
@@ -250,51 +304,9 @@ function VideoLocalRecordingRealtime({ processor }: ProcessorInfo) {
     };
   }, [isRecording]);
 
-  // Auto-set video source when segment is available
-  useEffect(() => {
-    if (!videoRef.current || !enableRealtimePlayback) {
-      return;
-    }
-
-    const segmentToPlay = currentSegmentBlob || 
-      (recordedSegments.length > 0 ? recordedSegments[recordedSegments.length - 1] : null);
-    
-    if (segmentToPlay && segmentToPlay.size > 0) {
-      try {
-        // Cleanup previous blob URL if exists
-        if (videoRef.current.src && videoRef.current.src.startsWith('blob:')) {
-          URL.revokeObjectURL(videoRef.current.src);
-        }
-        
-        const blobUrl = URL.createObjectURL(segmentToPlay);
-        videoRef.current.src = blobUrl;
-        // load() returns void in some browsers, so check if it returns a promise
-        const loadResult = videoRef.current.load();
-        if (loadResult && typeof loadResult.catch === 'function') {
-          loadResult.catch((error) => {
-            // Ignore load errors if video is already loaded or other expected cases
-            console.log('Video load error (may be expected):', error);
-          });
-        }
-      } catch (error) {
-        console.error('Error setting video source:', error);
-      }
-    } else {
-      // Only clear source if we previously had one, don't set empty src initially
-      if (videoRef.current.src && videoRef.current.src.startsWith('blob:')) {
-        URL.revokeObjectURL(videoRef.current.src);
-        videoRef.current.src = '';
-        videoRef.current.load();
-      }
-    }
-
-    return () => {
-      // Cleanup blob URLs on unmount
-      if (videoRef.current && videoRef.current.src && videoRef.current.src.startsWith('blob:')) {
-        URL.revokeObjectURL(videoRef.current.src);
-      }
-    };
-  }, [currentSegmentBlob, recordedSegments, enableRealtimePlayback]);
+  // Note: Removed useEffect that was automatically setting video.src
+  // It was overwriting the MediaSource that setupPlayback() creates.
+  // Now RealtimeVideoRecorder.playSegment() handles segment playback via MediaSource.
 
   const getResolutionDimensions = (res: string) => {
     switch (res) {
@@ -317,6 +329,7 @@ function VideoLocalRecordingRealtime({ processor }: ProcessorInfo) {
 
     try {
       setIsRecording(true);
+      isRecordingRef.current = true; // Update ref for cleanup
       setRecordedSegments([]);
       setCurrentSegmentBlob(null);
       segmentIndexRef.current = 0;
@@ -324,6 +337,9 @@ function VideoLocalRecordingRealtime({ processor }: ProcessorInfo) {
       setRecordingTime(0);
 
       const { width, height } = getResolutionDimensions(resolution);
+
+      // MediaSource is already setup in useEffect - no need to setup again
+      // Just start the chunk recording
 
       // Start real-time recorder (not needed for segment-based recording, but keep for compatibility)
       if (recorderRef.current) {
@@ -353,8 +369,11 @@ function VideoLocalRecordingRealtime({ processor }: ProcessorInfo) {
     } catch (error) {
       console.error("Failed to start recording:", error);
       setIsRecording(false);
+      isRecordingRef.current = false; // Update ref on error
       setErrorMessage(
-        `Failed to start recording: ${error instanceof Error ? error.message : "Unknown error"}`
+        `Failed to start recording: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
       );
     }
   };
@@ -365,6 +384,7 @@ function VideoLocalRecordingRealtime({ processor }: ProcessorInfo) {
     }
 
     setIsRecording(false);
+    isRecordingRef.current = false; // Update ref when stopping
 
     // Send stop command to Worker
     // Worker will create final segment and cleanup
@@ -376,6 +396,15 @@ function VideoLocalRecordingRealtime({ processor }: ProcessorInfo) {
 
     // Note: For real-time chunk recording, segments are created in Worker
     // The recorder cleanup is handled in the 'stop' message handler
+
+    // If upload is enabled, finalize the recording on server
+    // Use ref to get the latest uploadUrl value
+    if (uploadUrlRef.current.trim()) {
+      // Wait a bit for the final segment to be uploaded
+      setTimeout(() => {
+        finalizeRecording();
+      }, 1000);
+    }
   };
 
   const handlePreview = async () => {
@@ -386,33 +415,45 @@ function VideoLocalRecordingRealtime({ processor }: ProcessorInfo) {
       setIsPlaying(false);
     } else {
       try {
-        // Check if we have a segment to play
-        const segmentToPlay = currentSegmentBlob || 
-          (recordedSegments.length > 0 ? recordedSegments[recordedSegments.length - 1] : null);
-        
-        if (!segmentToPlay) {
-          setErrorMessage("No video segment available to play. Please record a segment first.");
+        // Check if we have segments to play
+        if (recordedSegments.length === 0) {
+          setErrorMessage(
+            "No video segment available to play. Please record a segment first."
+          );
           return;
         }
 
-        // Set video source if not already set or if it's different
-        const blobUrl = URL.createObjectURL(segmentToPlay);
-        if (videoRef.current.src !== blobUrl) {
-          // Cleanup previous blob URL if exists
-          if (videoRef.current.src && videoRef.current.src.startsWith('blob:')) {
-            URL.revokeObjectURL(videoRef.current.src);
-          }
-          videoRef.current.src = blobUrl;
-          videoRef.current.load();
+        console.log(`Playing ${recordedSegments.length} segments combined`);
+
+        // 简单方案：合并所有segments为一个blob
+        // 这样可以seekable，浏览器支持progressive download
+        const combinedBlob = new Blob(recordedSegments, { type: "video/webm" });
+        const blobUrl = URL.createObjectURL(combinedBlob);
+
+        // Cleanup previous blob URL
+        if (videoRef.current.src && videoRef.current.src.startsWith("blob:")) {
+          URL.revokeObjectURL(videoRef.current.src);
         }
+
+        // Set new source
+        videoRef.current.src = blobUrl;
+        videoRef.current.load();
+
+        console.log(
+          `Combined blob size: ${(combinedBlob.size / 1024 / 1024).toFixed(
+            2
+          )} MB`
+        );
 
         await videoRef.current.play();
         setIsPlaying(true);
-        setErrorMessage(""); // Clear any previous errors
+        setErrorMessage("");
       } catch (error) {
         console.error("Preview playback failed:", error);
         setErrorMessage(
-          `Preview playback failed: ${error instanceof Error ? error.message : "Unknown error"}`
+          `Preview playback failed: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`
         );
       }
     }
@@ -436,7 +477,9 @@ function VideoLocalRecordingRealtime({ processor }: ProcessorInfo) {
     } catch (error) {
       console.error("Download failed:", error);
       alert(
-        `Download failed: ${error instanceof Error ? error.message : "Unknown error"}`
+        `Download failed: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
       );
     }
   };
@@ -469,55 +512,147 @@ function VideoLocalRecordingRealtime({ processor }: ProcessorInfo) {
     } catch (error) {
       console.error("Download failed:", error);
       alert(
-        `Download failed: ${error instanceof Error ? error.message : "Unknown error"}`
+        `Download failed: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
       );
     }
   };
 
-  const uploadSegment = async (blob: Blob, index: number) => {
-    if (!uploadUrl.trim()) return;
+  const uploadSegment = async (blob: Blob, index: number, metadata?: any) => {
+    // Use ref to get the latest uploadUrl value
+    const currentUploadUrl = uploadUrlRef.current;
+    if (!currentUploadUrl.trim()) return;
 
     try {
       setIsUploading(true);
-      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-      const filename = `video-segment-${index}-${timestamp}.webm`;
 
       const formData = new FormData();
-      formData.append("file", blob, filename);
+      formData.append(
+        "file",
+        blob,
+        `segment-${String(index).padStart(4, "0")}.webm`
+      );
+      formData.append("sessionId", sessionId);
       formData.append("segmentIndex", index.toString());
-      formData.append("timestamp", timestamp);
 
-      console.log(`Uploading segment ${index} to:`, uploadUrl);
-      const response = await fetch(uploadUrl, {
-        method: "POST",
-        body: formData,
-      });
+      if (metadata) {
+        formData.append("metadata", JSON.stringify(metadata));
+      }
+
+      console.log(
+        `Uploading segment ${index} to ${currentUploadUrl}/api/recordings/segment (session: ${sessionId})`
+      );
+      const response = await fetch(
+        `${currentUploadUrl}/api/recordings/segment`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
 
       if (!response.ok) {
         throw new Error(`Upload failed: ${response.statusText}`);
       }
 
       const result = await response.json();
-      console.log(`Segment ${index} uploaded successfully:`, result);
+      console.log(`✓ Segment ${index} uploaded:`, result);
+      setStatusMessage(
+        `Uploaded segment ${index} (${(blob.size / 1024 / 1024).toFixed(2)} MB)`
+      );
     } catch (error) {
-      console.error(`Segment ${index} upload failed:`, error);
+      console.error(`✗ Segment ${index} upload failed:`, error);
+      setErrorMessage(
+        `Upload failed: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  const finalizeRecording = async () => {
+    // Use ref to get the latest uploadUrl value
+    const currentUploadUrl = uploadUrlRef.current;
+    if (!currentUploadUrl.trim()) return;
+
+    try {
+      console.log(`Finalizing recording for session ${sessionId}...`);
+      setStatusMessage("Merging segments on server...");
+
+      const response = await fetch(
+        `${currentUploadUrl}/api/recordings/finalize`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            sessionId,
+            method: "concat", // Use ffmpeg concat (reliable and professional)
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Finalize failed: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log("✓ Recording finalized:", result);
+      setStatusMessage(
+        `Recording complete! ${result.segmentCount} segments merged (${result.sizeFormatted}). ` +
+          `Download: ${currentUploadUrl}${result.outputPath}`
+      );
+    } catch (error) {
+      console.error("✗ Finalize failed:", error);
+      setErrorMessage(
+        `Failed to merge segments: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
     }
   };
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+    return `${mins.toString().padStart(2, "0")}:${secs
+      .toString()
+      .padStart(2, "0")}`;
   };
 
   return (
     <div className="bg-white rounded-2xl shadow-lg p-6">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">
-          Real-time Video Recording
-        </h2>
+        <div className="flex items-center gap-4">
+          <h2 className="text-2xl font-bold text-gray-800">
+            Real-time Video Recording
+          </h2>
+          <a
+            href={`${uploadUrl}/admin/recordings.html`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-4 py-2 text-sm bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors font-medium"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+              />
+            </svg>
+            View Recordings
+          </a>
+        </div>
         {isRecording && (
           <div className="flex items-center gap-2">
             <Radio className="w-5 h-5 text-red-500 animate-pulse" />
@@ -627,21 +762,6 @@ function VideoLocalRecordingRealtime({ processor }: ProcessorInfo) {
             />
           </div>
         </div>
-
-        <div>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={enableRealtimePlayback}
-              onChange={(e) => setEnableRealtimePlayback(e.target.checked)}
-              disabled={isRecording}
-              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-            />
-            <span className="text-sm text-gray-700">
-              Enable Real-time Playback
-            </span>
-          </label>
-        </div>
       </div>
 
       {/* Controls */}
@@ -663,52 +783,6 @@ function VideoLocalRecordingRealtime({ processor }: ProcessorInfo) {
             Stop Recording
           </button>
         )}
-
-        {(currentSegmentBlob || recordedSegments.length > 0) && (
-          <button
-            onClick={handlePreview}
-            className="flex items-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium"
-          >
-            <Play className="w-5 h-5" />
-            {isPlaying ? "Pause" : "Play"}
-          </button>
-        )}
-      </div>
-
-      {/* Video Preview */}
-      <div className="mb-6">
-        {(currentSegmentBlob || recordedSegments.length > 0) ? (
-          <video
-            ref={videoRef}
-            controls
-            className="w-full rounded-lg bg-gray-900"
-            style={{ maxHeight: "400px" }}
-            onLoadedMetadata={() => {
-              console.log("Video metadata loaded");
-            }}
-            onError={(e) => {
-              const video = e.currentTarget;
-              const error = video.error;
-              if (error) {
-                console.error("Video playback error:", {
-                  code: error.code,
-                  message: error.message,
-                });
-                setErrorMessage(
-                  `Video playback error (${error.code}): ${error.message || "Unknown error"}`
-                );
-              }
-            }}
-          />
-        ) : (
-          <div className="w-full rounded-lg bg-gray-900 flex items-center justify-center" style={{ minHeight: "300px", maxHeight: "400px" }}>
-            <div className="text-center text-gray-400">
-              <VideoIcon className="w-16 h-16 mx-auto mb-4 opacity-50" />
-              <p className="text-sm">No video available</p>
-              <p className="text-xs mt-2">Start recording to generate segments</p>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Segments */}
@@ -724,7 +798,8 @@ function VideoLocalRecordingRealtime({ processor }: ProcessorInfo) {
                 className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
               >
                 <span className="text-sm text-gray-700">
-                  Segment {index + 1} ({(segment.size / 1024 / 1024).toFixed(2)} MB)
+                  Segment {index + 1} ({(segment.size / 1024 / 1024).toFixed(2)}{" "}
+                  MB)
                 </span>
                 <button
                   onClick={() => handleDownloadSegment(segment, index + 1)}
@@ -747,15 +822,23 @@ function VideoLocalRecordingRealtime({ processor }: ProcessorInfo) {
       {/* Upload Configuration */}
       <div className="mb-6">
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          Upload URL (for auto-upload segments)
+          Server URL
         </label>
         <input
           type="text"
           value={uploadUrl}
-          onChange={(e) => setUploadUrl(e.target.value)}
-          placeholder="https://example.com/upload"
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          onChange={(e) => {
+            const newUrl = e.target.value;
+            setUploadUrl(newUrl);
+            uploadUrlRef.current = newUrl; // Keep ref in sync
+          }}
+          placeholder="http://localhost:8001"
+          disabled={isRecording}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
         />
+        <p className="mt-1 text-xs text-gray-500">
+          Segments will be automatically uploaded to this server
+        </p>
       </div>
 
       {/* Metadata */}
@@ -767,10 +850,15 @@ function VideoLocalRecordingRealtime({ processor }: ProcessorInfo) {
           <div className="text-xs text-gray-600 space-y-1">
             <p>Duration: {metadata.duration.toFixed(2)}s</p>
             <p>Frames: {metadata.frameCount}</p>
-            <p>Resolution: {metadata.width}×{metadata.height}</p>
+            <p>
+              Resolution: {metadata.width}×{metadata.height}
+            </p>
             <p>Frame Rate: {metadata.framerate} fps</p>
             <p>Total Segments: {recordedSegments.length}</p>
-            <p>Total Size: {(totalDataSizeRef.current / 1024 / 1024).toFixed(2)} MB</p>
+            <p>
+              Total Size: {(totalDataSizeRef.current / 1024 / 1024).toFixed(2)}{" "}
+              MB
+            </p>
           </div>
         </div>
       )}

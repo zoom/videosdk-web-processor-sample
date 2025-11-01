@@ -52,12 +52,15 @@ class VideoLocalRecordingRealtime extends VideoProcessor {
   // Segment timer
   private segmentTimer: any = null;
   private segmentIndex: number = 0;
+  private needsSegmentSplit: boolean = false; // Flag to request segment split at next keyframe
   
   // Store decoder config for new segments
   private decoderConfig: EncodedVideoChunkMetadata | null = null;
   private isFirstChunkInSegment: boolean = true;
   private pendingChunks: Array<{ chunk: EncodedVideoChunk; metadata: EncodedVideoChunkMetadata | undefined }> = [];
   private lastTimestamp: number = 0; // Track last timestamp from previous segment/GOP
+  private firstFrameTimestamp: number = 0; // Track first frame's timestamp for relative timing
+  private segmentStartTime: number = 0; // Track segment start time for metadata
 
   constructor(port: MessagePort, options?: any) {
     super(port, options);
@@ -88,18 +91,40 @@ class VideoLocalRecordingRealtime extends VideoProcessor {
     // If recording, encode the frame
     if (this.isRecording && this.videoEncoder && this.videoEncoder.state === 'configured') {
       try {
-        // Clone the frame for encoding (original will be closed by SDK)
+        // Track first frame timestamp for relative timing
+        if (this.frameCount === 0) {
+          this.firstFrameTimestamp = input.timestamp;
+          console.log(`First frame: input.timestamp=${input.timestamp}μs (${(input.timestamp / 1_000_000).toFixed(3)}s)`);
+        }
+
+        // Calculate relative timestamp from first frame
+        const relativeTimestamp = input.timestamp - this.firstFrameTimestamp;
+
+        // Log first few frames to see actual timing
+        if (this.frameCount < 3) {
+          const relativeSeconds = relativeTimestamp / 1_000_000;
+          const theoreticalTimestamp = this.frameCount / (this.config.framerate || 30);
+          console.log(`Frame ${this.frameCount}: relativeTime=${relativeSeconds.toFixed(3)}s, theoretical=${theoreticalTimestamp.toFixed(3)}s, delta=${(relativeSeconds - theoreticalTimestamp).toFixed(3)}s`);
+        }
+
+        // Clone the frame for encoding
+        // Use relative timestamp starting from 0
         const clonedFrame = new VideoFrame(input, {
-          timestamp: this.frameCount * (1_000_000 / this.config.framerate!), // microseconds
+          timestamp: relativeTimestamp, // Use relative timestamp from recording start
         });
 
         // Determine if this should be a keyframe
         // For new segments, we need a keyframe more frequently
-        // Every 30 frames (1 second at 30fps), or if this is the first frame after a segment
-        const keyFrame = this.frameCount % 30 === 0 || this.isFirstChunkInSegment;
+        // Every 30 frames (1 second at 30fps), if this is the first frame after a segment,
+        // or if a segment split is requested
+        const keyFrame = this.frameCount % 30 === 0 || this.isFirstChunkInSegment || this.needsSegmentSplit;
 
         // Check encoder queue size to prevent memory buildup
         if (this.videoEncoder.encodeQueueSize < 10) {
+          // Log first frame
+          if (this.frameCount === 0) {
+            console.log(`First frame encoded at ${new Date().toISOString()}, timestamp: ${clonedFrame.timestamp}μs`);
+          }
           this.videoEncoder.encode(clonedFrame, { keyFrame });
           this.frameCount++;
         } else {
@@ -207,7 +232,33 @@ class VideoLocalRecordingRealtime extends VideoProcessor {
 
               // Calculate timestamp in seconds
               const chunkTimestamp = chunk.timestamp / 1_000_000;
-              const chunkDuration = (chunk.duration || 0) / 1_000_000;
+              // If chunk.duration is 0 or undefined, use theoretical frame duration
+              let chunkDuration = chunk.duration ? (chunk.duration / 1_000_000) : 0;
+              if (chunkDuration === 0) {
+                // Use theoretical frame duration: 1 / framerate
+                chunkDuration = 1.0 / (this.config.framerate || 30);
+              }
+
+              // Log chunk info for debugging timing issues
+              if (this.frameCount % 30 === 0) {
+                console.log(`Frame ${this.frameCount}: type=${chunk.type}, timestamp=${chunkTimestamp.toFixed(3)}s, duration=${chunkDuration.toFixed(3)}s (${chunk.duration ? 'actual' : 'calculated'}), lastTimestamp=${this.lastTimestamp.toFixed(3)}s`);
+              }
+
+              // Check if we need to split segment at this keyframe
+              // Must be after a segment has started (not the very first chunk of recording)
+              // We check !isFirstChunkInSegment to ensure we have at least one chunk in current segment
+              if (this.needsSegmentSplit) {
+                console.log(`Segment split requested. Chunk type: ${chunk.type}, isFirstChunkInSegment: ${this.isFirstChunkInSegment}`);
+                if (chunk.type === 'key' && !this.isFirstChunkInSegment) {
+                  console.log('Creating segment at requested keyframe');
+                  await this.createAndSendSegment();
+                  this.needsSegmentSplit = false;
+                  // After creating segment, this chunk becomes the first chunk of new segment
+                  // So continue processing below
+                } else if (chunk.type !== 'key') {
+                  console.log('Waiting for keyframe to split segment (current chunk is delta)');
+                }
+              }
 
               // For first chunk in a new segment:
               // 1. Must be a key frame
@@ -295,15 +346,6 @@ class VideoLocalRecordingRealtime extends VideoProcessor {
                     this.lastTimestamp = Math.max(this.lastTimestamp, adjustedPendingTimestamp + pendingDuration);
                   } catch (error) {
                     console.error('Error processing pending chunk:', error);
-                  } finally {
-                    // Try to close chunk if it has a close method
-                    if (pending.chunk && typeof pending.chunk.close === 'function') {
-                      try {
-                        pending.chunk.close();
-                      } catch (e) {
-                        // Chunk may already be closed
-                      }
-                    }
                   }
                 }
                 this.pendingChunks = [];
@@ -370,6 +412,11 @@ class VideoLocalRecordingRealtime extends VideoProcessor {
       this.isFirstChunkInSegment = true;
       this.pendingChunks = [];
       this.lastTimestamp = 0; // Reset timestamp tracking for new recording
+      this.needsSegmentSplit = false;
+      this.firstFrameTimestamp = 0; // Reset first frame timestamp
+      this.segmentStartTime = 0; // Reset segment start time
+
+      console.log(`Recording started at ${new Date().toISOString()}, frameCount reset to 0`);
 
       // Set max duration timer
       if (this.config.maxDuration && this.config.maxDuration > 0) {
@@ -381,8 +428,11 @@ class VideoLocalRecordingRealtime extends VideoProcessor {
 
       // Set segment timer for periodic segment creation
       const segmentDurationMs = (this.config.segmentDuration || 10) * 1000;
-      this.segmentTimer = setInterval(async () => {
-        await this.createAndSendSegment();
+      this.segmentTimer = setInterval(() => {
+        // Request segment split at next keyframe instead of immediately
+        // This ensures we don't wait too long for the next natural keyframe
+        console.log(`Segment timer triggered after ${this.config.segmentDuration}s, requesting keyframe for segment split`);
+        this.needsSegmentSplit = true;
       }, segmentDurationMs);
 
       // Send initial config to main thread
@@ -479,28 +529,45 @@ class VideoLocalRecordingRealtime extends VideoProcessor {
     }
 
     try {
+      const segmentCreationTime = Date.now();
+      const elapsedTime = (segmentCreationTime - this.recordingStartTimestamp) / 1000;
+      console.log(`Creating segment ${this.segmentIndex}: frameCount=${this.frameCount}, elapsed time=${elapsedTime.toFixed(2)}s, lastTimestamp=${this.lastTimestamp.toFixed(2)}s`);
+
       // Finalize current segment
       await this.output.finalize();
       const buffer = this.outputTarget.buffer;
 
       if (buffer) {
-        // Send segment to main thread
+        const bufferSize = buffer.byteLength;
+        const segmentDuration = this.lastTimestamp - this.segmentStartTime;
+
+        // Send segment to main thread with complete metadata
         this.port.postMessage(
           {
             type: 'segment',
             segment: buffer,
             segmentIndex: this.segmentIndex++,
             metadata: {
+              startTime: this.segmentStartTime,
+              endTime: this.lastTimestamp,
+              duration: segmentDuration,
               frameCount: this.frameCount,
               width: this.config.width,
               height: this.config.height,
               framerate: this.config.framerate,
+              codec: this.config.codec,
+              bitrate: this.config.bitrate,
+              size: bufferSize,
+              timestamp: Date.now(),
             },
           },
           [buffer] // Transfer buffer ownership
         );
 
-        console.log(`Segment ${this.segmentIndex - 1} created and sent: ${buffer.byteLength} bytes`);
+        console.log(`Segment ${this.segmentIndex - 1} sent: ${bufferSize} bytes, duration: ${segmentDuration.toFixed(2)}s (${this.segmentStartTime.toFixed(2)}s - ${this.lastTimestamp.toFixed(2)}s)`);
+
+        // Update segment start time for next segment
+        this.segmentStartTime = this.lastTimestamp;
       }
 
       // Reset for next segment
@@ -573,6 +640,10 @@ class VideoLocalRecordingRealtime extends VideoProcessor {
     this.context = null;
     this.decoderConfig = null;
     this.isFirstChunkInSegment = true;
+    this.needsSegmentSplit = false;
+    this.firstFrameTimestamp = 0;
+    this.lastTimestamp = 0;
+    this.segmentStartTime = 0;
     
     // Cleanup pending chunks (chunks may already be closed or transferred)
     this.pendingChunks = [];
