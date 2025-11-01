@@ -1,9 +1,23 @@
-import { Box, Binary, Gauge, Cpu, Video, Globe, Smartphone, Monitor, Apple, Laptop, SmartphoneIcon, VideoIcon } from "lucide-react";
+import {
+  Box,
+  Binary,
+  Gauge,
+  Cpu,
+  Video,
+  Globe,
+  Smartphone,
+  Monitor,
+  Apple,
+  Laptop,
+  SmartphoneIcon,
+  VideoIcon,
+} from "lucide-react";
 import DualMask from "../../components/parameters/DualMask";
 import WatermarkEffect from "../../components/parameters/WatermarkEffect";
 import { ProcessorConfig } from "../../index-types";
 import GamerLive from "../../components/parameters/GamerLive";
 import VideoLocalRecording from "../../components/parameters/VideoLocalRecording";
+import VideoLocalRecordingRealtime from "../../components/parameters/VideoLocalRecordingRealtime";
 
 const baseUrl = window.origin;
 
@@ -24,7 +38,7 @@ const videoConfig: Record<string, ProcessorConfig> = {
       { icon: Smartphone, text: "Android" },
       { icon: Apple, text: "iOS" },
       { icon: Laptop, text: "Windows" },
-      { icon: Monitor, text: "Mac" }
+      { icon: Monitor, text: "Mac" },
     ],
     implementation: {
       usage: `
@@ -125,7 +139,7 @@ const videoConfig: Record<string, ProcessorConfig> = {
     platforms: [
       { icon: Globe, text: "Web" },
       { icon: Smartphone, text: "Android" },
-      { icon: Apple, text: "iOS" }
+      { icon: Apple, text: "iOS" },
     ],
     implementation: {
       usage: `
@@ -225,7 +239,7 @@ const videoConfig: Record<string, ProcessorConfig> = {
     platforms: [
       { icon: Globe, text: "Web" },
       { icon: Smartphone, text: "Android" },
-      { icon: Apple, text: "iOS" }
+      { icon: Apple, text: "iOS" },
     ],
     implementation: {
       usage: `
@@ -256,9 +270,7 @@ const videoConfig: Record<string, ProcessorConfig> = {
     description:
       "Demonstration of the online markdown editing functionality. Try the 'Edit Documentation' feature!",
     features: [{ icon: Video, text: "documentation tool" }],
-    platforms: [
-      { icon: Globe, text: "Web" },
-    ],
+    platforms: [{ icon: Globe, text: "Web" }],
     implementation: {
       usage: `
           // This is a demo of the markdown editor
@@ -284,9 +296,7 @@ const videoConfig: Record<string, ProcessorConfig> = {
     description:
       "Showcase the markdown theme system with live theme switching. Perfect for testing different themes!",
     features: [{ icon: Video, text: "theme showcase" }],
-    platforms: [
-      { icon: Globe, text: "Web" },
-    ],
+    platforms: [{ icon: Globe, text: "Web" }],
     implementation: {
       usage: `
           // Theme Demo Processor
@@ -322,9 +332,7 @@ const videoConfig: Record<string, ProcessorConfig> = {
     description:
       "Record video stream locally in the browser using WebCodecs API. Supports VP8/VP9 encoding and WebM container format with configurable resolution, framerate, and bitrate.",
     features: [{ icon: Video, text: "video pre-processor" }],
-    platforms: [
-      { icon: Globe, text: "Web (Chrome/Edge)" },
-    ],
+    platforms: [{ icon: Globe, text: "Web (Chrome/Edge)" }],
     implementation: {
       usage: `
           // Create video local recording processor
@@ -500,7 +508,75 @@ const videoConfig: Record<string, ProcessorConfig> = {
         `,
     },
     isInDevelopment: false,
-  }
+  },
+  "video-local-recording-realtime": {
+    id: "video-local-recording-realtime",
+    url: baseUrl + "/video-local-recording-realtime.js",
+    options: {},
+    render: VideoLocalRecordingRealtime,
+    name: "Real-time Video Recording",
+    description:
+      "Real-time video recording with streaming capabilities. Records video in segments, enables real-time transmission and playback. Perfect for long-duration recordings.",
+    features: [{ icon: Video, text: "video pre-processor" }],
+    platforms: [{ icon: Globe, text: "Web (Chrome/Edge)" }],
+    implementation: {
+      usage: `
+          // Create real-time video recording processor
+          const processor: Processor = stream.createProcessor({
+            url: 'https://example.com/video-local-recording-realtime.js',
+            name: 'video-local-recording-realtime',
+            type: 'video',
+            options: {},
+          });
+
+          // Add processor to stream
+          await stream.addProcessor(processor);
+
+          // Start real-time recording
+          processor.port.postMessage({
+            command: 'start',
+            config: {
+              width: 1280,
+              height: 720,
+              framerate: 30,
+              bitrate: 2000000, // 2 Mbps
+              codec: 'vp8', // or 'vp9'
+              maxDuration: 300, // 5 minutes
+              realtime: true,
+            }
+          });
+
+          // Stop recording
+          processor.port.postMessage({
+            command: 'stop'
+          });
+
+          // Listen for real-time chunks
+          processor.port.onmessage = (event) => {
+            if (event.data.type === 'chunk') {
+              // Handle encoded chunk in real-time
+              const chunk = event.data.chunk;
+              const metadata = event.data.metadata;
+              // Process chunk for streaming/playback
+            }
+          };
+        `,
+      example: `
+          // Real-time recording enables:
+          // 1. Streaming encoded chunks as they are produced
+          // 2. Real-time playback using MediaSource Extensions
+          // 3. Segment-based recording for long durations
+          // 4. Progressive upload/download of segments
+          
+          // Worker side: Encodes frames and streams chunks
+          // Main thread: Receives chunks and handles:
+          //   - Real-time playback
+          //   - Segment generation
+          //   - Progressive upload/download
+        `,
+    },
+    isInDevelopment: false,
+  },
 };
 
 export default videoConfig;
