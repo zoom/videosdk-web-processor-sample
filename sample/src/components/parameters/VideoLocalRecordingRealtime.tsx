@@ -202,14 +202,6 @@ function VideoLocalRecordingRealtime({ processor }: ProcessorInfo) {
                   `⚠️ Upload URL is empty, segment will NOT be uploaded`
                 );
               }
-
-              // 简化方案：不实时播放
-              // 用户点击Play时会合并所有segments并播放
-              console.log(
-                `Segment stored. Click Play to watch all ${
-                  recordedSegments.length + 1
-                } segments combined.`
-              );
             }
             break;
 
