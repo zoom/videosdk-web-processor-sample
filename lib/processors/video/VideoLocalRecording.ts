@@ -1,4 +1,4 @@
-import { Muxer, ArrayBufferTarget } from 'webm-muxer';
+import { Output, WebMOutputFormat, BufferTarget, EncodedVideoPacketSource, VideoCodec } from 'mediabunny';
 
 interface VideoRecordingConfig {
   width?: number;
@@ -7,6 +7,7 @@ interface VideoRecordingConfig {
   bitrate?: number;
   codec?: string;
   maxDuration?: number;
+  format?: 'webm' | 'mp4'; // Add format option
 }
 
 class VideoLocalRecording extends VideoProcessor {
@@ -16,10 +17,11 @@ class VideoLocalRecording extends VideoProcessor {
   private startTime: number = 0;
   private recordingStartTimestamp: number = 0;
 
-  // Encoder and Muxer
+  // Encoder and MediaBunny Output
   private videoEncoder: VideoEncoder | null = null;
-  private muxer: Muxer<ArrayBufferTarget> | null = null;
-  private muxerTarget: ArrayBufferTarget | null = null;
+  private output: Output | null = null;
+  private outputTarget: BufferTarget | null = null;
+  private videoSource: EncodedVideoPacketSource | null = null;
 
   // Configuration
   private config: VideoRecordingConfig = {
@@ -29,6 +31,7 @@ class VideoLocalRecording extends VideoProcessor {
     bitrate: 2_000_000, // 2 Mbps
     codec: 'vp8',
     maxDuration: 300, // 5 minutes
+    format: 'webm', // Default to WebM
   };
 
   // Drawing context for passthrough
@@ -133,26 +136,51 @@ class VideoLocalRecording extends VideoProcessor {
         throw new Error('VideoEncoder is not supported in this browser');
       }
 
-      // Initialize Muxer
-      this.muxerTarget = new ArrayBufferTarget();
-      this.muxer = new Muxer({
-        target: this.muxerTarget,
-        video: {
-          codec: this.config.codec === 'vp9' ? 'V_VP9' : 'V_VP8',
-          width: this.config.width!,
-          height: this.config.height!,
-          frameRate: this.config.framerate,
-        },
+      // Determine codec string and MediaBunny video codec
+      const codecString = this.config.codec === 'vp9' 
+        ? 'vp09.00.10.08' 
+        : 'vp8';
+
+      // Check codec support first
+      const support = await VideoEncoder.isConfigSupported({
+        codec: codecString,
+        width: this.config.width!,
+        height: this.config.height!,
+        bitrate: this.config.bitrate,
+        framerate: this.config.framerate,
+      });
+
+      if (!support.supported) {
+        throw new Error(`Codec ${codecString} is not supported`);
+      }
+
+      // Initialize MediaBunny Output
+      this.outputTarget = new BufferTarget();
+      this.output = new Output({
+        format: new WebMOutputFormat(),
+        target: this.outputTarget,
+      });
+
+      // Create video source for encoded packets
+      const videoCodec: VideoCodec = this.config.codec === 'vp9' ? 'vp9' : 'vp8';
+      this.videoSource = new EncodedVideoPacketSource(videoCodec);
+
+      // Add video track to output
+      // MediaBunny will automatically detect width/height from the encoder config
+      this.output.addVideoTrack(this.videoSource, {
+        frameRate: this.config.framerate,
       });
 
       // Initialize VideoEncoder
       this.videoEncoder = new VideoEncoder({
-        output: (chunk, metadata) => {
-          if (this.muxer) {
+        output: async (chunk, metadata) => {
+          if (this.videoSource) {
             try {
-              this.muxer.addVideoChunk(chunk, metadata);
+              // Add encoded packet to MediaBunny source
+              // MediaBunny expects EncodedPacket, which is compatible with EncodedVideoChunk
+              await this.videoSource.add(chunk as any, metadata);
             } catch (error) {
-              console.error('Error adding video chunk to muxer:', error);
+              console.error('Error adding video chunk to source:', error);
             }
           }
         },
@@ -166,23 +194,6 @@ class VideoLocalRecording extends VideoProcessor {
         },
       });
 
-      // Check codec support
-      const codecString = this.config.codec === 'vp9' 
-        ? 'vp09.00.10.08' 
-        : 'vp8';
-
-      const support = await VideoEncoder.isConfigSupported({
-        codec: codecString,
-        width: this.config.width!,
-        height: this.config.height!,
-        bitrate: this.config.bitrate,
-        framerate: this.config.framerate,
-      });
-
-      if (!support.supported) {
-        throw new Error(`Codec ${codecString} is not supported`);
-      }
-
       // Configure encoder
       this.videoEncoder.configure({
         codec: codecString,
@@ -192,6 +203,9 @@ class VideoLocalRecording extends VideoProcessor {
         framerate: this.config.framerate,
         latencyMode: 'quality',
       });
+
+      // Start MediaBunny output
+      await this.output.start();
 
       // Reset counters
       this.frameCount = 0;
@@ -249,40 +263,43 @@ class VideoLocalRecording extends VideoProcessor {
         this.videoEncoder = null;
       }
 
-      // Finalize muxer and get the video buffer
-      if (this.muxer && this.muxerTarget) {
-        this.muxer.finalize();
-        const { buffer } = this.muxerTarget;
+      // Finalize MediaBunny output and get the video buffer
+      if (this.output && this.outputTarget) {
+        await this.output.finalize();
+        const buffer = this.outputTarget.buffer;
 
-        const duration = (performance.now() - this.startTime) / 1000;
-        const fileSize = buffer.byteLength;
-        const avgBitrate = (fileSize * 8) / duration; // bits per second
+        if (buffer) {
+          const duration = (performance.now() - this.startTime) / 1000;
+          const fileSize = buffer.byteLength;
+          const avgBitrate = (fileSize * 8) / duration; // bits per second
 
-        console.log(`Recording complete: ${this.frameCount} frames, ${duration.toFixed(2)}s, ${(fileSize / 1024 / 1024).toFixed(2)}MB`);
+          console.log(`Recording complete: ${this.frameCount} frames, ${duration.toFixed(2)}s, ${(fileSize / 1024 / 1024).toFixed(2)}MB`);
 
-        // Send the video buffer back to main thread
-        this.port.postMessage(
-          {
-            type: 'encoding',
-            videoFormat: 'webm',
-            codec: this.config.codec,
-            buffer: buffer,
-            metadata: {
-              frameCount: this.frameCount,
-              duration: duration,
-              fileSize: fileSize,
-              width: this.config.width,
-              height: this.config.height,
-              framerate: this.config.framerate,
-              bitrate: avgBitrate,
-              timestamp: this.recordingStartTimestamp,
+          // Send the video buffer back to main thread
+          this.port.postMessage(
+            {
+              type: 'encoding',
+              videoFormat: this.config.format || 'webm',
+              codec: this.config.codec,
+              buffer: buffer,
+              metadata: {
+                frameCount: this.frameCount,
+                duration: duration,
+                fileSize: fileSize,
+                width: this.config.width,
+                height: this.config.height,
+                framerate: this.config.framerate,
+                bitrate: avgBitrate,
+                timestamp: this.recordingStartTimestamp,
+              },
             },
-          },
-          [buffer] // Transfer buffer ownership
-        );
+            [buffer] // Transfer buffer ownership
+          );
+        }
 
-        this.muxer = null;
-        this.muxerTarget = null;
+        this.output = null;
+        this.outputTarget = null;
+        this.videoSource = null;
       }
 
       this.port.postMessage({
@@ -319,8 +336,9 @@ class VideoLocalRecording extends VideoProcessor {
       this.videoEncoder = null;
     }
 
-    this.muxer = null;
-    this.muxerTarget = null;
+    this.output = null;
+    this.outputTarget = null;
+    this.videoSource = null;
     this.frameCount = 0;
     this.context = null;
   }

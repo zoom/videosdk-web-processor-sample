@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recordings Manager</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            color: #667eea;
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 16px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 36px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .sessions-grid {
+            display: grid;
+            gap: 20px;
+        }
+
+        .session-card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+
+        .session-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .session-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 20px;
+        }
+
+        .session-id {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            font-family: 'Courier New', monospace;
+        }
+
+        .session-time {
+            color: #999;
+            font-size: 14px;
+        }
+
+        .session-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .info-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .info-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .info-value {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .video-preview {
+            width: 100%;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            background: #000;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-play {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-play:hover {
+            background: #5568d3;
+        }
+
+        .btn-download {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .btn-download:hover {
+            background: #45a049;
+        }
+
+        .btn-delete {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-delete:hover {
+            background: #da190b;
+        }
+
+        .btn-segments {
+            background: #2196F3;
+            color: white;
+        }
+
+        .btn-segments:hover {
+            background: #0b7dda;
+        }
+
+        .segments-list {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .segments-list.show {
+            display: block;
+        }
+
+        .segment-item {
+            padding: 10px;
+            margin-bottom: 10px;
+            background: white;
+            border-radius: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .segment-name {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+
+        .segment-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: white;
+            font-size: 18px;
+        }
+
+        .error {
+            background: #f44336;
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+
+        .empty-state h2 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .empty-state p {
+            color: #666;
+        }
+
+        .refresh-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: #667eea;
+            color: white;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            font-size: 24px;
+            transition: all 0.2s;
+        }
+
+        .refresh-btn:hover {
+            transform: scale(1.1);
+            background: #5568d3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📹 Recordings Manager</h1>
+            <p class="subtitle">Manage and view your video recordings</p>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value" id="totalSessions">-</div>
+                <div class="stat-label">Total Sessions</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="totalSize">-</div>
+                <div class="stat-label">Total Size</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="totalSegments">-</div>
+                <div class="stat-label">Total Segments</div>
+            </div>
+        </div>
+
+        <div id="errorContainer"></div>
+        <div id="loadingContainer" class="loading">Loading recordings...</div>
+        <div id="sessionsContainer" class="sessions-grid"></div>
+    </div>
+
+    <button class="refresh-btn" onclick="loadRecordings()" title="Refresh">
+        🔄
+    </button>
+
+    <script>
+        const API_BASE = '/api/recordings';
+
+        async function loadRecordings() {
+            const loadingEl = document.getElementById('loadingContainer');
+            const sessionsEl = document.getElementById('sessionsContainer');
+            const errorEl = document.getElementById('errorContainer');
+
+            loadingEl.style.display = 'block';
+            sessionsEl.innerHTML = '';
+            errorEl.innerHTML = '';
+
+            try {
+                // Get all session directories
+                const sessionsResponse = await fetch(`${API_BASE}/list`);
+                let sessions = [];
+                
+                if (sessionsResponse.ok) {
+                    sessions = await sessionsResponse.json();
+                } else {
+                    throw new Error('Failed to load sessions');
+                }
+
+                loadingEl.style.display = 'none';
+
+                if (sessions.length === 0) {
+                    sessionsEl.innerHTML = `
+                        <div class="empty-state">
+                            <h2>No recordings yet</h2>
+                            <p>Start recording from the main app to see your videos here</p>
+                        </div>
+                    `;
+                    updateStats(0, 0, 0);
+                    return;
+                }
+
+                // Update stats
+                const totalSegments = sessions.reduce((sum, s) => sum + (s.segmentCount || 0), 0);
+                const totalSize = sessions.reduce((sum, s) => sum + (s.totalSize || 0), 0);
+                updateStats(sessions.length, totalSize, totalSegments);
+
+                // Render sessions
+                sessions.forEach(session => renderSession(session));
+
+            } catch (error) {
+                loadingEl.style.display = 'none';
+                errorEl.innerHTML = `
+                    <div class="error">
+                        <strong>Error loading recordings:</strong> ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        function renderSession(session) {
+            const sessionsEl = document.getElementById('sessionsContainer');
+            
+            const sessionCard = document.createElement('div');
+            sessionCard.className = 'session-card';
+            sessionCard.innerHTML = `
+                <div class="session-header">
+                    <div>
+                        <div class="session-id">${session.sessionId}</div>
+                        <div class="session-time">${new Date().toLocaleString()}</div>
+                    </div>
+                </div>
+
+                <div class="session-info">
+                    <div class="info-item">
+                        <div class="info-label">Segments</div>
+                        <div class="info-value">${session.segmentCount || 0}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Size</div>
+                        <div class="info-value">${formatSize(session.totalSize || 0)}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Status</div>
+                        <div class="info-value">${session.complete ? '✅ Complete' : '⏳ Processing'}</div>
+                    </div>
+                </div>
+
+                ${session.complete ? `
+                    <video class="video-preview" controls>
+                        <source src="${session.completeUrl}" type="video/webm">
+                    </video>
+                ` : ''}
+
+                <div class="actions">
+                    ${session.complete ? `
+                        <button class="btn btn-play" onclick="playVideo('${session.completeUrl}')">
+                            ▶️ Play
+                        </button>
+                        <button class="btn btn-download" onclick="downloadVideo('${session.completeUrl}', '${session.sessionId}')">
+                            ⬇️ Download
+                        </button>
+                    ` : ''}
+                    <button class="btn btn-segments" onclick="toggleSegments('${session.sessionId}')">
+                        📂 View Segments
+                    </button>
+                    <button class="btn btn-delete" onclick="deleteSession('${session.sessionId}')">
+                        🗑️ Delete
+                    </button>
+                </div>
+
+                <div class="segments-list" id="segments-${session.sessionId}">
+                    <h3 style="margin-bottom: 15px;">Segments:</h3>
+                    ${(session.segments || []).map(segment => `
+                        <div class="segment-item">
+                            <span class="segment-name">${segment.name}</span>
+                            <div class="segment-actions">
+                                <button class="btn btn-download" style="padding: 5px 15px; font-size: 12px;" onclick="downloadVideo('${segment.url}', '${segment.name}')">
+                                    ⬇️
+                                </button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            
+            sessionsEl.appendChild(sessionCard);
+        }
+
+        function updateStats(sessions, totalSize, segments) {
+            document.getElementById('totalSessions').textContent = sessions;
+            document.getElementById('totalSize').textContent = formatSize(totalSize);
+            document.getElementById('totalSegments').textContent = segments;
+        }
+
+        function formatSize(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function playVideo(url) {
+            window.open(url, '_blank');
+        }
+
+        function downloadVideo(url, filename) {
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename || 'recording.webm';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        async function deleteSession(sessionId) {
+            if (!confirm(`Are you sure you want to delete session ${sessionId}?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/${sessionId}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    alert('Session deleted successfully');
+                    loadRecordings();
+                } else {
+                    const error = await response.json();
+                    alert('Error deleting session: ' + error.error);
+                }
+            } catch (error) {
+                alert('Error deleting session: ' + error.message);
+            }
+        }
+
+        function toggleSegments(sessionId) {
+            const segmentsEl = document.getElementById(`segments-${sessionId}`);
+            segmentsEl.classList.toggle('show');
+        }
+
+        // Load recordings on page load
+        loadRecordings();
+
+        // Auto-refresh every 10 seconds
+        setInterval(loadRecordings, 10000);
+    </script>
+</body>
+</html>
+

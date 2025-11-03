@@ -57,6 +57,14 @@ const videoProcessors: Processor[] = [
     icon: <VideoIcon className="w-6 h-6" />,
     isInDevelopment: false,
   },
+  {
+    id: "video-local-recording-realtime",
+    name: "Real-time Video Recording",
+    description:
+      "Real-time video recording with streaming capabilities. Records video in segments, enables real-time transmission and playback. Perfect for long-duration recordings.",
+    icon: <VideoIcon className="w-6 h-6" />,
+    isInDevelopment: false,
+  },
 ];
 
 const audioProcessors: Processor[] = [
